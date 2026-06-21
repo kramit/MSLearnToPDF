@@ -1,4 +1,5 @@
 const path = require("node:path");
+const { pathToFileURL } = require("node:url");
 const { chromium } = require("playwright");
 const { escapeHtml } = require("../content");
 const { throwIfAborted } = require("../shared");
@@ -8,10 +9,9 @@ async function generatePdf(htmlFile, pdfFile, config, signal) {
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
-    await page.goto(
-      new URL(`file:///${path.resolve(htmlFile).replaceAll("\\", "/")}`).href,
-      { waitUntil: "networkidle" }
-    );
+    await page.goto(pathToFileURL(path.resolve(htmlFile)).href, {
+      waitUntil: "networkidle"
+    });
     throwIfAborted(signal);
     await page.emulateMedia({ media: "print" });
     await page.pdf({

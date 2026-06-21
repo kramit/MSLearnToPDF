@@ -24,7 +24,15 @@ function Ensure-Node22 {
 }
 
 function Install-Dependencies {
-  if (Test-Path (Join-Path $RepoRoot "node_modules\\ink")) {
+  $requiredPackages = @("ink", "react", "playwright")
+  $allInstalled = $true
+  foreach ($package in $requiredPackages) {
+    if (-not (Test-Path (Join-Path $RepoRoot "node_modules\\$package"))) {
+      $allInstalled = $false
+      break
+    }
+  }
+  if ($allInstalled) {
     return
   }
   $pnpm = Get-Command "pnpm" -ErrorAction SilentlyContinue
@@ -40,8 +48,28 @@ function Install-Dependencies {
   & npm install --no-package-lock
 }
 
+function Install-Chromium {
+  $chromiumPath = (& node -e "console.log(require('playwright').chromium.executablePath())").Trim()
+  if (Test-Path $chromiumPath) {
+    return
+  }
+  Write-Host "Installing Playwright Chromium for PDF generation..."
+  $pnpm = Get-Command "pnpm" -ErrorAction SilentlyContinue
+  if ($pnpm) {
+    & $pnpm.Source exec playwright install chromium
+    return
+  }
+  $corepackCmd = Get-Command "corepack" -ErrorAction SilentlyContinue
+  if ($corepackCmd) {
+    & $corepackCmd.Source pnpm exec playwright install chromium
+    return
+  }
+  & npx playwright install chromium
+}
+
 Ensure-Node22
 Install-Dependencies
+Install-Chromium
 
 $arguments = @("src/tui.js")
 if ($Config) {

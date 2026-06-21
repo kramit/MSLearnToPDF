@@ -18,7 +18,9 @@ require_node_22() {
 }
 
 install_dependencies() {
-  if [ -d "$REPO_ROOT/node_modules/ink" ]; then
+  if [ -d "$REPO_ROOT/node_modules/ink" ] &&
+     [ -d "$REPO_ROOT/node_modules/react" ] &&
+     [ -d "$REPO_ROOT/node_modules/playwright" ]; then
     return
   fi
   if command -v pnpm >/dev/null 2>&1; then
@@ -32,8 +34,25 @@ install_dependencies() {
   npm install --no-package-lock
 }
 
+install_chromium() {
+  if node -e "const fs = require('node:fs'); const { chromium } = require('playwright'); process.exit(fs.existsSync(chromium.executablePath()) ? 0 : 1)" >/dev/null 2>&1; then
+    return
+  fi
+  echo "Installing Playwright Chromium for PDF generation..."
+  if command -v pnpm >/dev/null 2>&1; then
+    pnpm exec playwright install chromium
+    return
+  fi
+  if command -v corepack >/dev/null 2>&1; then
+    corepack pnpm exec playwright install chromium
+    return
+  fi
+  npx playwright install chromium
+}
+
 require_node_22
 install_dependencies
+install_chromium
 
 if [ "${1-}" = "--config" ] && [ "${2-}" != "" ]; then
   exec node src/tui.js --config "$2"

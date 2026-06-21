@@ -7,18 +7,32 @@ lets you queue one or more courses for export.
 
 ## Launch the TUI
 
+### Windows
+
 ```powershell
 .\run.ps1
 ```
 
+### macOS and Linux
+
 ```sh
+git clone https://github.com/kramit/MSLearnToPDF.git
+cd MSLearnToPDF
 ./run.sh
 ```
+
+The launcher requires Node.js 22 or newer. On first use it installs JavaScript
+dependencies and the Playwright Chromium build used for PDF generation. Both
+Apple Silicon and Intel macOS are supported by the native canvas dependency.
 
 Optional alternate app config:
 
 ```powershell
 .\run.ps1 -Config .\config\app.json
+```
+
+```sh
+./run.sh --config ./config/app.json
 ```
 
 The TUI:
@@ -35,8 +49,15 @@ Default app config lives in `config/app.json`.
 ## Convert a Microsoft Learn URL
 
 ```powershell
-npm install
+npm install --no-package-lock
+npm run install:browser
 npm run convert -- --url "https://learn.microsoft.com/en-us/credentials/certifications/exams/ai-901/"
+```
+
+Verify that the local browser can produce a PDF:
+
+```sh
+npm run smoke:pdf
 ```
 
 Force a fresh Microsoft Learn snapshot:

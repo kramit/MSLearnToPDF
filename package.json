@@ -2,6 +2,7 @@
   "name": "mslearn-to-pdf",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.17.1",
   "description": "Extract Microsoft Learn course modules and render them as study-book PDFs.",
   "main": "src/cli.js",
   "scripts": {
@@ -12,6 +13,8 @@
     "build:refresh": "node src/cli.js --config config/sc-500-course.json --refresh",
     "build:path": "node src/cli.js --config config/sc-500-learning-path.json",
     "test": "node --test",
+    "install:browser": "playwright install chromium",
+    "smoke:pdf": "node scripts/smoke_pdf.js",
     "render": "node src/render-pdf.js output/pdf/sc-500-secure-access-resources-entra.pdf tmp/pdfs/sc-500-secure-access-resources-entra"
   },
   "dependencies": {

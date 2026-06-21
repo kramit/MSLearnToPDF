@@ -1,0 +1,30 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  node:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm install:browser
+      - run: pnpm smoke:pdf
+      - run: node src/cli.js --help
+      - run: node src/qa.js --help
+      - run: node src/tui.js --help
+      - name: Verify macOS launcher syntax
+        if: runner.os == 'macOS'
+        run: sh -n run.sh
