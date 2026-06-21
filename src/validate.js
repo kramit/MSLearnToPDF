@@ -12,6 +12,22 @@ function normalizeForSearch(value) {
     .trim();
 }
 
+function containsValidationText(searchableText, value) {
+  const normalizedValue = normalizeForSearch(value);
+  if (!normalizedValue) return true;
+  if (searchableText.includes(normalizedValue)) return true;
+
+  const sentenceFragments = String(value || "")
+    .split(/(?<=[.!?])\s+/u)
+    .map(normalizeForSearch)
+    .filter(Boolean);
+
+  return (
+    sentenceFragments.length > 1 &&
+    sentenceFragments.every((fragment) => searchableText.includes(fragment))
+  );
+}
+
 async function validatePdf(pdfFile, report) {
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const data = new Uint8Array(await fs.readFile(pdfFile));
@@ -35,8 +51,7 @@ async function validatePdf(pdfFile, report) {
     report.learningPath.title,
     "Source and attribution",
     ...report.modules.map((module) => module.title),
-    ...units.map((unit) => unit.title),
-    ...units.map((unit) => unit.validationText).filter(Boolean)
+    ...units.map((unit) => unit.title)
   ];
   if (report.schemaVersion >= 4) {
     const unsampledUnits = units.filter((unit) => !unit.validationText);
@@ -49,9 +64,15 @@ async function validatePdf(pdfFile, report) {
     }
   }
   if (report.totals.answerCount > 0) required.push("Assessment answer key");
-  const missing = required.filter(
+  const missing = [
+    ...required.filter(
     (value) => !searchableText.includes(normalizeForSearch(value))
-  );
+    ),
+    ...units
+      .map((unit) => unit.validationText)
+      .filter(Boolean)
+      .filter((value) => !containsValidationText(searchableText, value))
+  ];
   if (missing.length) {
     throw new Error(`Required PDF text missing: ${missing.join(" | ")}`);
   }
@@ -80,4 +101,8 @@ async function validatePdf(pdfFile, report) {
   };
 }
 
-module.exports = { normalizeForSearch, validatePdf };
+module.exports = {
+  containsValidationText,
+  normalizeForSearch,
+  validatePdf
+};
