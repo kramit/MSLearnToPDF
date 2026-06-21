@@ -1,9 +1,10 @@
 node_modules/
-cache/
-tmp/
-output/
-config/cache/
-config/output/
+/.cache/
+/cache/
+/tmp/
+/output/
+/config/cache/
+/config/output/
 .agents/
 .codex/
 .env
