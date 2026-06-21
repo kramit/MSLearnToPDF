@@ -1,0 +1,98 @@
+{
+  "notice": "The questions are authored by Microsoft. The answers and explanations below were prepared for this study PDF and should be reviewed against the dated source snapshot.",
+  "modules": [
+    {
+      "moduleUid": "learn.wwl.manage-implement-authentication-methods",
+      "answers": [
+        {
+          "questionNumber": 1,
+          "answer": "FIDO2 security key",
+          "explanation": "FIDO2 security keys use public-key cryptography and are phishing-resistant because no reusable secret is sent during sign-in.",
+          "supportingUnitUid": "learn.wwl.manage-implement-authentication-methods.explore-authentication-methods"
+        },
+        {
+          "questionNumber": 2,
+          "answer": "Using Conditional Access policies to require MFA",
+          "explanation": "Conditional Access is the recommended policy-based mechanism for requiring MFA for users, applications, risk levels, and other conditions.",
+          "supportingUnitUid": "learn.wwl.manage-implement-authentication-methods.configure-mfa"
+        },
+        {
+          "questionNumber": 3,
+          "answer": "FIDO2 security key",
+          "explanation": "A portable FIDO2 security key suits shared kiosks because it does not depend on an individually assigned Windows device.",
+          "supportingUnitUid": "learn.wwl.manage-implement-authentication-methods.implement-passwordless-authentication"
+        },
+        {
+          "questionNumber": 4,
+          "answer": "FIDO2 security key / passkey",
+          "explanation": "FIDO2 security keys and passkeys are authentication methods, but they are not verification methods supported for self-service password reset.",
+          "supportingUnitUid": "learn.wwl.manage-implement-authentication-methods.configure-self-service-password-reset"
+        },
+        {
+          "questionNumber": 5,
+          "answer": "Temporary Access Pass (TAP)",
+          "explanation": "A Temporary Access Pass is a time-limited credential designed to let a user complete first-time registration and bootstrap passwordless authentication.",
+          "supportingUnitUid": "learn.wwl.manage-implement-authentication-methods.implement-passwordless-authentication"
+        }
+      ]
+    },
+    {
+      "moduleUid": "learn.wwl.implement-configure-privileged-identity-management",
+      "answers": [
+        {
+          "questionNumber": 1,
+          "answer": "Nonuniform activation settings across individual assignments create policy drift that auditors flag and attackers probe for.",
+          "explanation": "Managing many individual eligible assignments makes consistent policy changes difficult; group-based eligibility provides one settings source and reduces drift.",
+          "supportingUnitUid": "learn.wwl.implement-configure-privileged-identity-management.explore-privileged-access-groups"
+        },
+        {
+          "questionNumber": 2,
+          "answer": "Managed identities and service principals can't perform interactive PIM activation, so eligible assignments aren't supported for workload identities.",
+          "explanation": "Workload identities authenticate non-interactively and cannot complete MFA, justification, or approval. They require permanent, narrowly scoped RBAC assignments.",
+          "supportingUnitUid": "learn.wwl.implement-configure-privileged-identity-management.apply-privilege-workloads-agents-apps"
+        },
+        {
+          "questionNumber": 3,
+          "answer": "Require approval to activate the role, and designate at least two approvers.",
+          "explanation": "Approval adds the required second-person checkpoint before a sensitive eligible role becomes active; multiple approvers reduce availability risk.",
+          "supportingUnitUid": "learn.wwl.implement-configure-privileged-identity-management.implement-just-in-time-entra-roles"
+        },
+        {
+          "questionNumber": 4,
+          "answer": "A break-glass emergency access account with a permanent Global Administrator assignment, excluded from PIM activation requirements.",
+          "explanation": "Emergency access accounts remain available when approvers, multifactor authentication, or the PIM activation service are unavailable, and must be tightly monitored.",
+          "supportingUnitUid": "learn.wwl.implement-configure-privileged-identity-management.review-design-patterns"
+        },
+        {
+          "questionNumber": 5,
+          "answer": "Lower-privileged administrators such as Groups Administrators can modify standard group membership outside the PIM workflow, potentially bypassing the activation audit trail.",
+          "explanation": "Role-assignable groups raise the privilege required to change membership and reduce the chance of bypassing PIM approvals and auditing.",
+          "supportingUnitUid": "learn.wwl.implement-configure-privileged-identity-management.explore-privileged-access-groups"
+        }
+      ]
+    },
+    {
+      "moduleUid": "learn.copilot-declarative-agent-api-plugin-auth",
+      "answers": [
+        {
+          "questionNumber": 1,
+          "answer": "API key and OAuth using client ID and secret",
+          "explanation": "API plugins support API-key authentication and OAuth authorization. For OAuth, Microsoft 365 stores the client ID, client secret, and endpoint information securely.",
+          "supportingUnitUid": "learn.copilot-declarative-agent-api-plugin-auth.integrate-api-plugin-oauth"
+        },
+        {
+          "questionNumber": 2,
+          "answer": "Vault entry ID",
+          "explanation": "The API key itself is stored in the Microsoft 365 vault. The plugin manifest references the vault entry ID so the secret is not exposed in the app package.",
+          "supportingUnitUid": "learn.copilot-declarative-agent-api-plugin-auth.integrate-api-plugin-key"
+        },
+        {
+          "questionNumber": 3,
+          "answer": "Client ID, client secret, token endpoints",
+          "explanation": "The OAuth registration needs the application client ID and secret plus the identity provider's authorization and token endpoint information.",
+          "supportingUnitUid": "learn.copilot-declarative-agent-api-plugin-auth.integrate-api-plugin-oauth"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "name": "mslearn-to-pdf",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Extract Microsoft Learn course modules and render them as study-book PDFs.",
+  "main": "src/cli.js",
+  "scripts": {
+    "convert": "node src/cli.js",
+    "qa": "node src/qa.js",
+    "tui": "node src/tui.js",
+    "build": "node src/cli.js --config config/sc-500-course.json",
+    "build:refresh": "node src/cli.js --config config/sc-500-course.json --refresh",
+    "build:path": "node src/cli.js --config config/sc-500-learning-path.json",
+    "test": "node --test",
+    "render": "node src/render-pdf.js output/pdf/sc-500-secure-access-resources-entra.pdf tmp/pdfs/sc-500-secure-access-resources-entra"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.80",
+    "ink": "^7.0.4",
+    "marked": "^16.4.1",
+    "pdfjs-dist": "^5.4.394",
+    "playwright": "^1.57.0",
+    "react": "^19.2.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

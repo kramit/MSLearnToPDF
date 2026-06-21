@@ -1,0 +1,12 @@
+{
+  "posterUrl": "https://arch-center.azureedge.net/Credentials/Certification-Poster_en-us.pdf",
+  "outputRoot": "./output",
+  "cacheRoot": "./cache",
+  "locale": "en-us",
+  "paperFormat": "A4",
+  "refreshPosterOnStart": true,
+  "refreshCourseContent": true,
+  "stallWarningSeconds": 60,
+  "logLevel": "verbose",
+  "theme": "azure"
+}

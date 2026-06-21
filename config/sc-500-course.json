@@ -1,0 +1,11 @@
+{
+  "courseUrl": "https://learn.microsoft.com/en-us/training/courses/sc-500t00",
+  "courseCode": "SC-500",
+  "courseTitle": "Implement end-to-end security controls for cloud and AI workloads",
+  "locale": "en-us",
+  "paperFormat": "A4",
+  "allLearningPaths": true,
+  "answersFiles": {
+    "learn.wwl.secure-access-resources-entra": "config/sc-500-secure-access-resources-entra-answers.json"
+  }
+}
