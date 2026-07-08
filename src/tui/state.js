@@ -17,10 +17,15 @@ function initialState() {
     message: "Loading configuration",
     config: null,
     catalog: null,
+    modeCursor: 0,
     filter: "",
     searchMode: false,
     cursor: 0,
     selectedCodes: [],
+    customUrl: {
+      value: "",
+      error: ""
+    },
     qaMode: null,
     queue: [],
     prepareError: "",
@@ -232,11 +237,34 @@ function reduce(state, action) {
     case "startup/ready":
       return {
         ...state,
-        screen: "catalog",
+        screen: "mode-select",
         config: action.config,
-        catalog: normalizeCatalog(action.catalog),
+        catalog: action.catalog ? normalizeCatalog(action.catalog) : state.catalog,
         message: "",
+        modeCursor: 0,
         cursor: 0
+      };
+    case "mode/cursor-delta":
+      return {
+        ...state,
+        modeCursor: Math.max(0, Math.min(1, state.modeCursor + action.delta))
+      };
+    case "mode/open-custom-url":
+      return {
+        ...state,
+        screen: "custom-url",
+        customUrl: {
+          ...state.customUrl,
+          error: ""
+        },
+        prepareError: ""
+      };
+    case "catalog/loading":
+      return {
+        ...state,
+        screen: "startup",
+        message: action.message || "Loading certification poster",
+        prepareError: ""
       };
     case "startup/error":
       return {
@@ -270,9 +298,28 @@ function reduce(state, action) {
     case "catalog/replace":
       return clampCursor({
         ...state,
+        screen: "catalog",
         catalog: normalizeCatalog(action.catalog),
+        message: "",
         cursor: 0
       });
+    case "custom-url/set":
+      return {
+        ...state,
+        customUrl: {
+          value: action.value,
+          error: ""
+        }
+      };
+    case "custom-url/error":
+      return {
+        ...state,
+        screen: "custom-url",
+        customUrl: {
+          ...state.customUrl,
+          error: action.error
+        }
+      };
     case "queue/preparing":
       return {
         ...state,
@@ -300,13 +347,25 @@ function reduce(state, action) {
     case "queue/error":
       return {
         ...state,
-        screen: "catalog",
+        screen: state.catalog ? "catalog" : "custom-url",
         prepareError: action.error
       };
     case "nav/back":
-      if (state.screen === "confirm") return { ...state, screen: "catalog" };
-      if (state.screen === "summary") return { ...state, screen: "catalog" };
-      if (state.screen === "output-manager") return { ...state, screen: "catalog" };
+      if (state.screen === "custom-url") return { ...state, screen: "mode-select" };
+      if (state.screen === "confirm") {
+        return {
+          ...state,
+          screen: state.queue.some((item) => item.source === "custom-url")
+            ? "custom-url"
+            : "catalog"
+        };
+      }
+      if (state.screen === "summary") {
+        return { ...state, screen: state.catalog ? "catalog" : "mode-select" };
+      }
+      if (state.screen === "output-manager") {
+        return { ...state, screen: state.catalog ? "catalog" : "mode-select" };
+      }
       if (state.screen === "output-confirm") {
         return {
           ...state,

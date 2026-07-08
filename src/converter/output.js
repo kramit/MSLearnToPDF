@@ -6,6 +6,7 @@ function buildOutputDirectories(appConfig, courseCode, stamp) {
   return {
     pdfDirectory: path.join(appConfig.outputRoot, "pdf", `${courseCode}-${stamp}`),
     htmlDirectory: path.join(appConfig.outputRoot, "html", `${courseCode}-${stamp}`),
+    textDirectory: path.join(appConfig.outputRoot, "text", `${courseCode}-${stamp}`),
     reportDirectory: path.join(
       appConfig.outputRoot,
       "reports",

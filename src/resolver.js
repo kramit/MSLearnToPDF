@@ -119,6 +119,13 @@ function learningPathUidFromUrl(url) {
   return new URL(url).pathname.match(/\/training\/paths\/([^/]+)/i)?.[1] || "";
 }
 
+function standaloneLearningPathCode(slug) {
+  return String(slug || "")
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/^-+|-+$/g, "")
+    .toUpperCase();
+}
+
 function courseSlugFromUrl(url) {
   return new URL(url).pathname.match(/\/training\/courses\/([^/]+)/i)?.[1] || "";
 }
@@ -186,10 +193,10 @@ async function resolveInputUrl(input, options) {
     const code =
       courseCodeOverride ||
       titleCode ||
-      "";
+      standaloneLearningPathCode(directPathSlug);
     if (!code) {
       throw new Error(
-        "A direct learning-path URL does not identify a course code. Supply --course-code."
+        "A direct learning-path URL does not identify a usable export label."
       );
     }
     return {

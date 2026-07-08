@@ -40,6 +40,7 @@ const {
   renderUnit,
   validateAnswers
 } = require("./content");
+const { renderLlmText } = require("./text");
 
 function shouldSkipCourseMembershipCheck(resolution, uid) {
   return Boolean(
@@ -56,6 +57,16 @@ function createPathProgress(base, extra = {}) {
     learningPathTitle: base.learningPathTitle,
     ...extra
   };
+}
+
+function textOutputDirectory(pathConfig) {
+  if (pathConfig.textOutputDir) return pathConfig.textOutputDir;
+  const pdfDir = path.resolve(pathConfig.pdfOutputDir);
+  const pdfParent = path.dirname(pdfDir);
+  if (path.basename(pdfParent) === "pdf") {
+    return path.join(path.dirname(pdfParent), "text", path.basename(pdfDir));
+  }
+  return path.join(path.dirname(pdfDir), "text");
 }
 
 async function resolveCourseFromUrl(input, options) {
@@ -133,12 +144,14 @@ async function convertLearningPath(pathConfig, options) {
   const cacheRoot = path.dirname(hierarchyCacheFile);
   const markdownCacheDir = path.join(cacheRoot, "markdown");
   const imageCacheDir = path.join(cacheRoot, "images");
+  const textOutputDir = textOutputDirectory(pathConfig);
   await Promise.all(
     [
       markdownCacheDir,
       imageCacheDir,
       pathConfig.htmlOutputDir,
       pathConfig.pdfOutputDir,
+      textOutputDir,
       pathConfig.reportOutputDir
     ].map(ensureDir)
   );
@@ -357,7 +370,21 @@ async function convertLearningPath(pathConfig, options) {
   const fileBase = pathConfig.fileBase || pathConfig.outputBase;
   const htmlFile = path.join(pathConfig.htmlOutputDir, `${fileBase}.html`);
   const pdfFile = path.join(pathConfig.pdfOutputDir, `${fileBase}.pdf`);
+  const textFile = path.join(textOutputDir, `${fileBase}.txt`);
   await fs.writeFile(htmlFile, html, "utf8");
+  await fs.writeFile(
+    textFile,
+    renderLlmText({
+      config: pathConfig,
+      course,
+      learningPath,
+      modules,
+      answerNotice: answerData.notice,
+      retrievedAt,
+      sourceUpdatedAt
+    }),
+    "utf8"
+  );
 
   emitProgress(onEvent, {
     severity: "info",
@@ -392,7 +419,7 @@ async function convertLearningPath(pathConfig, options) {
     }
   }));
   const report = {
-    schemaVersion: 4,
+    schemaVersion: 5,
     retrievedAt,
     sourceUpdatedAt,
     course: {
@@ -439,7 +466,8 @@ async function convertLearningPath(pathConfig, options) {
     warnings: context.warnings,
     outputs: {
       html: outputPath(root, htmlFile),
-      pdf: outputPath(root, pdfFile)
+      pdf: outputPath(root, pdfFile),
+      text: outputPath(root, textFile)
     }
   };
   const reportJsonFile = path.join(pathConfig.reportOutputDir, `${fileBase}.json`);
@@ -455,7 +483,7 @@ async function convertLearningPath(pathConfig, options) {
     message: `Completed ${learningPath.title}`,
     ...createPathProgress(progressBase)
   });
-  return { report, pdfFile, reportJsonFile, reportMarkdownFile };
+  return { report, pdfFile, textFile, reportJsonFile, reportMarkdownFile };
 }
 
 async function convertCourseFromResolution(resolution, options) {
@@ -479,7 +507,7 @@ async function convertCourseFromResolution(resolution, options) {
   await Promise.all(Object.values(directories).map(ensureDir));
 
   const manifest = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     courseCode: resolution.courseCode,
     courseUid: resolution.courseUid || null,
     courseTitle: resolution.courseTitle,
@@ -512,6 +540,7 @@ async function convertCourseFromResolution(resolution, options) {
       modules: 0,
       units: 0,
       pdf: "",
+      text: "",
       status: "pending",
       validation: null,
       reflection: null
@@ -559,6 +588,7 @@ async function convertCourseFromResolution(resolution, options) {
         fileBase,
         pdfOutputDir: directories.pdfDirectory,
         htmlOutputDir: directories.htmlDirectory,
+        textOutputDir: directories.textDirectory,
         reportOutputDir: directories.reportDirectory,
         answersPath: answersFiles?.[uid] || null,
         skipCourseMembershipCheck: shouldSkipCourseMembershipCheck(
@@ -577,6 +607,7 @@ async function convertCourseFromResolution(resolution, options) {
         }
       };
       const pdfFile = path.join(directories.pdfDirectory, `${fileBase}.pdf`);
+      const textFile = path.join(directories.textDirectory, `${fileBase}.txt`);
       manifestEntry.title = parent.title;
       manifestEntry.modules = hierarchy.modules.length;
       manifestEntry.units = hierarchy.modules.reduce(
@@ -584,6 +615,7 @@ async function convertCourseFromResolution(resolution, options) {
         0
       );
       manifestEntry.pdf = relativePosix(root, pdfFile);
+      manifestEntry.text = relativePosix(root, textFile);
       const result = await convertLearningPath(pathConfig, {
         appConfig,
         root,

@@ -102,6 +102,7 @@ ${module.units
 - Assessment questions: ${report.totals.assessmentQuestions}
 - Answer-key entries: ${report.totals.answerCount}
 - PDF: ${report.outputs.pdf}
+- Text: ${report.outputs.text}
 
 ## Included modules and units
 

@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const {
   buildOutputConfirmation,
   convertPreparedQueue,
+  prepareCustomUrlQueue,
   prepareSelectedQueue
 } = require("../src/tui/workflows");
 
@@ -46,6 +47,56 @@ test("prepareSelectedQueue resolves sequentially and retains per-entry failures"
 
   assert.deepEqual(calls, ["one", "two"]);
   assert.deepEqual(queue.map((item) => item.status), ["ready", "failed"]);
+});
+
+test("prepareCustomUrlQueue resolves one learning path without a course override", async () => {
+  const calls = [];
+  const state = {
+    customUrl: {
+      value: "https://learn.microsoft.com/en-us/training/paths/dashboard-in-a-day/"
+    },
+    config: { refreshCourseContent: false }
+  };
+  const queue = await prepareCustomUrlQueue(state, {
+    resolveCourse: async (url, options) => {
+      calls.push({ url, courseCodeOverride: options.courseCodeOverride });
+      return {
+        courseCode: "DASHBOARD-IN-A-DAY",
+        courseTitle: "Dashboard in a Day",
+        learningPathUids: ["learn-bizapps.dashboard-in-a-day"]
+      };
+    }
+  });
+
+  assert.deepEqual(calls, [
+    {
+      url: "https://learn.microsoft.com/en-us/training/paths/dashboard-in-a-day/",
+      courseCodeOverride: undefined
+    }
+  ]);
+  assert.equal(queue.length, 1);
+  assert.equal(queue[0].status, "ready");
+  assert.equal(queue[0].source, "custom-url");
+  assert.equal(queue[0].posterInfo, null);
+});
+
+test("prepareCustomUrlQueue keeps failed custom resolution visible", async () => {
+  const state = {
+    customUrl: {
+      value: "https://learn.microsoft.com/en-us/training/paths/dashboard-in-a-day/"
+    },
+    config: { refreshCourseContent: false }
+  };
+  const queue = await prepareCustomUrlQueue(state, {
+    resolveCourse: async () => {
+      throw new Error("unavailable");
+    }
+  });
+
+  assert.equal(queue.length, 1);
+  assert.equal(queue[0].status, "failed");
+  assert.equal(queue[0].source, "custom-url");
+  assert.match(queue[0].error, /unavailable/);
 });
 
 test("convertPreparedQueue preserves initial failures and stops after cancellation", async () => {

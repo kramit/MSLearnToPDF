@@ -76,11 +76,17 @@ The converter creates dated folders such as:
 
 - `output/pdf/AI-901-2026-06-20/`
 - `output/html/AI-901-2026-06-20/`
+- `output/text/AI-901-2026-06-20/`
 - `output/reports/AI-901-2026-06-20/`
 
-Each PDF is named:
+Each PDF and text-only LLM export is named from the same learning-path base:
 
 - `AI-901 - <Learning Path title> - 2026-06-20.pdf`
+- `AI-901 - <Learning Path title> - 2026-06-20.txt`
+
+The text export is a compact plain-text artifact for LLM chat/context ingestion.
+It keeps course, learning-path, module, unit, URL, assessment, and reviewed
+answer-key landmarks while stripping print-oriented layout.
 
 The report folder includes a course manifest with source resolution details,
 learning-path order, counts, warnings, failures, filenames, and validation

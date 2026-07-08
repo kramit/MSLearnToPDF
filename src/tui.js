@@ -15,6 +15,7 @@ const { buildTheme, formatRate, lineForEvent } = require("./tui/format");
 const {
   buildOutputConfirmation,
   convertPreparedQueue,
+  prepareCustomUrlQueue,
   prepareSelectedQueue
 } = require("./tui/workflows");
 const { createPresentationPrimitives } = require("./tui/presentation");
@@ -35,7 +36,7 @@ function isPageDown(input, key) {
 }
 
 function isPrintable(input) {
-  return Boolean(input && /^[ -~]$/.test(input));
+  return Boolean(input && /^[ -~]+$/.test(input));
 }
 
 async function fileExists(target) {
@@ -85,7 +86,7 @@ async function main() {
       Box,
       { flexDirection: "column", padding: 1 },
       h(Text, { color: tint("azure"), bold: true }, "Microsoft Learn Course Downloader"),
-      h(Text, { color: tint("cyan") }, "Loading configuration and certification poster"),
+      h(Text, { color: tint("cyan") }, "Loading configuration or certification poster"),
       h(Box, { height: 1 }),
       h(Panel, { title: "Status" }, h(Text, null, state.message || "Starting")),
       state.config
@@ -98,6 +99,101 @@ async function main() {
             h(Text, null, `Locale: ${state.config.locale}  Paper: ${state.config.paperFormat}`)
           )
         : null
+    );
+  }
+
+  function Footer({ state }) {
+    if (!state.config?.outputRoot) return null;
+    return h(
+      Box,
+      { paddingX: 1 },
+      h(Text, { color: tint("slate") }, `Output root: ${state.config.outputRoot}`)
+    );
+  }
+
+  function ScreenFrame({ state, children }) {
+    return h(
+      Box,
+      { flexDirection: "column" },
+      h(Box, { flexDirection: "column", flexGrow: 1 }, children),
+      h(Footer, { state })
+    );
+  }
+
+  function ModeSelectScreen({ state }) {
+    const options = [
+      {
+        title: "Browse Microsoft courses",
+        detail: "Load the certification poster catalog and select one or more courses."
+      },
+      {
+        title: "Paste learning path URL",
+        detail: "Process a standalone Microsoft Learn training path into PDF."
+      }
+    ];
+    return h(
+      Box,
+      { flexDirection: "column", padding: 1 },
+      h(Text, { color: tint("azure"), bold: true }, "Microsoft Learn Course Downloader"),
+      h(Text, { color: tint("slate") }, "Choose what you want to export"),
+      h(Box, { height: 1 }),
+      h(
+        Panel,
+        { title: "Start" },
+        ...options.map((option, index) =>
+          h(
+            Box,
+            { key: option.title, flexDirection: "column", marginBottom: 1 },
+            h(
+              Text,
+              {
+                color: tint(index === state.modeCursor ? "cyan" : "white"),
+                bold: index === state.modeCursor
+              },
+              `${index === state.modeCursor ? ">" : " "} ${option.title}`
+            ),
+            h(Text, { color: tint("slate") }, `  ${option.detail}`)
+          )
+        )
+      ),
+      h(
+        Panel,
+        { title: "Controls" },
+        h(Text, null, "Arrows navigate"),
+        h(Text, null, "Enter selects  Ctrl+C exits")
+      )
+    );
+  }
+
+  function CustomUrlScreen({ state }) {
+    return h(
+      Box,
+      { flexDirection: "column", padding: 1 },
+      h(Text, { color: tint("azure"), bold: true }, "Custom Learning Path"),
+      h(Text, { color: tint("slate") }, "Paste a Microsoft Learn training path URL"),
+      h(Box, { height: 1 }),
+      h(
+        Panel,
+        { title: "URL", subtitle: "Example: https://learn.microsoft.com/en-us/training/paths/dashboard-in-a-day/" },
+        h(
+          Text,
+          { color: tint(state.customUrl.error ? "red" : "white") },
+          state.customUrl.value || "(paste URL here)"
+        )
+      ),
+      state.customUrl.error
+        ? h(
+            Panel,
+            { title: "Last Warning" },
+            h(SeverityText, { severity: "warn" }, state.customUrl.error)
+          )
+        : null,
+      h(
+        Panel,
+        { title: "Controls" },
+        h(Text, null, "Paste/type URL  Backspace edits"),
+        h(Text, null, "Enter resolves  Esc returns")
+      )
     );
   }
 
@@ -351,6 +447,9 @@ async function main() {
       );
     }
     const ready = state.queue.filter((item) => item.status === "ready");
+    const returnTarget = state.queue.some((item) => item.source === "custom-url")
+      ? "the URL entry screen"
+      : "the catalog";
     return h(
       Box,
       { flexDirection: "column", padding: 1 },
@@ -389,7 +488,7 @@ async function main() {
             Panel,
             { title: "Controls" },
             h(Text, null, "Enter starts conversion for ready courses"),
-            h(Text, null, "Esc returns to the catalog")
+            h(Text, null, `Esc returns to ${returnTarget}`)
           )
     );
   }
@@ -572,6 +671,12 @@ async function main() {
         .filter((pathEntry) => pathEntry.status === "complete")
         .map((pathEntry) => pathEntry.pdf)
     );
+    const texts = successful.flatMap((item) =>
+      item.manifest.learningPaths
+        .filter((pathEntry) => pathEntry.status === "complete")
+        .map((pathEntry) => pathEntry.text)
+        .filter(Boolean)
+    );
     return h(
       Box,
       { flexDirection: "column", padding: 1 },
@@ -586,7 +691,7 @@ async function main() {
             Box,
             { key: item.courseCode, flexDirection: "column", marginBottom: 1 },
             h(Text, { color: tint("green"), bold: true }, `${item.courseCode} complete`),
-            h(Text, null, `${item.manifest.learningPaths.filter((entry) => entry.status === "complete").length} PDF(s) ready`)
+            h(Text, null, `${item.manifest.learningPaths.filter((entry) => entry.status === "complete").length} learning-path export(s) ready`)
           )
         ),
         ...failed.map((item, index) =>
@@ -605,6 +710,11 @@ async function main() {
       ),
       h(
         Panel,
+        { title: "Generated Text Exports" },
+        ...(texts.length ? texts.map((text) => h(Text, { key: text }, text)) : [h(Text, { key: "none" }, "No text exports generated")])
+      ),
+      h(
+        Panel,
         { title: "Artifacts" },
         h(Text, null, `Logs: ${logFile || "(none)"}`),
         h(Text, null, `Output root: ${state.config?.outputRoot || "-"}`)
@@ -612,7 +722,7 @@ async function main() {
       h(
         Panel,
         { title: "Controls" },
-        h(Text, null, "Esc returns to the catalog  Ctrl+C exits")
+        h(Text, null, `Esc returns to ${state.catalog ? "the catalog" : "start"}  Ctrl+C exits`)
       )
     );
   }
@@ -680,20 +790,7 @@ async function main() {
           `MSLearnToPDF session ${new Date().toISOString()}\n`,
           "utf8"
         );
-        dispatch({
-          type: "startup/message",
-          message: appConfig.refreshPosterOnStart
-            ? "Refreshing certification poster"
-            : "Loading cached certification poster"
-        });
-        const catalog = await loadPosterCatalog(appConfig, {
-          refresh: appConfig.refreshPosterOnStart,
-          onEvent: (event) => {
-            appendSessionLog(event);
-            dispatch({ type: "startup/message", message: event.message });
-          }
-        });
-        dispatch({ type: "startup/ready", config: appConfig, catalog });
+        dispatch({ type: "startup/ready", config: appConfig });
       } catch (error) {
         dispatch({ type: "startup/error", error: error.message });
       }
@@ -740,7 +837,7 @@ async function main() {
         refreshAbortRef.current?.abort();
         const controller = new AbortController();
         refreshAbortRef.current = controller;
-        dispatch({ type: "startup/message", message: "Refreshing certification poster" });
+        dispatch({ type: "catalog/loading", message: "Refreshing certification poster" });
         const catalog = await loadPosterCatalog(state.config, {
           refresh: true,
           signal: controller.signal,
@@ -752,6 +849,33 @@ async function main() {
         dispatch({ type: "catalog/replace", catalog });
       } catch (error) {
         dispatch({ type: "queue/error", error: error.message });
+      }
+    }
+
+    async function openCatalog() {
+      if (!state.config) return;
+      try {
+        await ensureSessionLogFile();
+        refreshAbortRef.current?.abort();
+        const controller = new AbortController();
+        refreshAbortRef.current = controller;
+        dispatch({
+          type: "catalog/loading",
+          message: state.config.refreshPosterOnStart
+            ? "Refreshing certification poster"
+            : "Loading cached certification poster"
+        });
+        const catalog = await loadPosterCatalog(state.config, {
+          refresh: state.config.refreshPosterOnStart,
+          signal: controller.signal,
+          onEvent: (event) => {
+            appendSessionLog(event);
+            dispatch({ type: "startup/message", message: event.message });
+          }
+        });
+        dispatch({ type: "catalog/replace", catalog });
+      } catch (error) {
+        dispatch({ type: "startup/error", error: error.message });
       }
     }
 
@@ -840,6 +964,26 @@ async function main() {
         dispatch({ type: "queue/ready", queue });
       } catch (error) {
         dispatch({ type: "queue/error", error: error.message });
+      }
+    }
+
+    async function prepareCustomQueue() {
+      if (!state.config) return;
+      await ensureSessionLogFile();
+      dispatch({ type: "queue/preparing" });
+      try {
+        const queue = await prepareCustomUrlQueue(state, {
+          resolveCourse: resolveCourseFromUrl,
+          onEntry: (entry) =>
+            dispatch({
+              type: "startup/message",
+              message: `Resolving ${entry.url}`
+            }),
+          onEvent: (event) => appendSessionLog(event)
+        });
+        dispatch({ type: "queue/ready", queue });
+      } catch (error) {
+        dispatch({ type: "custom-url/error", error: error.message });
       }
     }
 
@@ -1003,6 +1147,42 @@ async function main() {
         return;
       }
 
+      if (state.screen === "mode-select") {
+        if (key.upArrow) dispatch({ type: "mode/cursor-delta", delta: -1 });
+        else if (key.downArrow) dispatch({ type: "mode/cursor-delta", delta: 1 });
+        else if (key.return && state.modeCursor === 0) openCatalog();
+        else if (key.return && state.modeCursor === 1) {
+          dispatch({ type: "mode/open-custom-url" });
+        }
+        return;
+      }
+
+      if (state.screen === "custom-url") {
+        if (key.escape) {
+          dispatch({ type: "nav/back" });
+          return;
+        }
+        if (key.return) {
+          if (state.customUrl.value.trim()) prepareCustomQueue();
+          else dispatch({ type: "custom-url/error", error: "Paste a Microsoft Learn learning path URL." });
+          return;
+        }
+        if (key.backspace || key.delete) {
+          dispatch({
+            type: "custom-url/set",
+            value: state.customUrl.value.slice(0, -1)
+          });
+          return;
+        }
+        if (isPrintable(input)) {
+          dispatch({
+            type: "custom-url/set",
+            value: state.customUrl.value + input.trim()
+          });
+        }
+        return;
+      }
+
       if (state.screen === "catalog") {
         const pageDelta = Math.max(5, Math.floor((size.rows || 24) / 2));
         const filtered = getFilteredEntries(state);
@@ -1095,31 +1275,37 @@ async function main() {
     });
 
     if (state.screen === "startup") {
-      return h(StartupScreen, { state });
+      return h(ScreenFrame, { state }, h(StartupScreen, { state }));
     }
     if (state.screen === "error") {
-      return h(ErrorScreen, { state });
+      return h(ScreenFrame, { state }, h(ErrorScreen, { state }));
+    }
+    if (state.screen === "mode-select") {
+      return h(ScreenFrame, { state }, h(ModeSelectScreen, { state }));
+    }
+    if (state.screen === "custom-url") {
+      return h(ScreenFrame, { state }, h(CustomUrlScreen, { state }));
     }
     if (state.screen === "catalog") {
-      return h(CatalogScreen, { state });
+      return h(ScreenFrame, { state }, h(CatalogScreen, { state }));
     }
     if (state.screen === "output-manager") {
-      return h(OutputManagerScreen, { state });
+      return h(ScreenFrame, { state }, h(OutputManagerScreen, { state }));
     }
     if (state.screen === "output-confirm") {
-      return h(OutputConfirmScreen, { state });
+      return h(ScreenFrame, { state }, h(OutputConfirmScreen, { state }));
     }
     if (state.screen === "preparing") {
-      return h(QueueScreen, { state, preparing: true });
+      return h(ScreenFrame, { state }, h(QueueScreen, { state, preparing: true }));
     }
     if (state.screen === "confirm") {
-      return h(QueueScreen, { state, preparing: false });
+      return h(ScreenFrame, { state }, h(QueueScreen, { state, preparing: false }));
     }
     if (state.screen === "converting") {
-      return h(ProgressScreen, { state, logFile: sessionLogFileRef.current });
+      return h(ScreenFrame, { state }, h(ProgressScreen, { state, logFile: sessionLogFileRef.current }));
     }
     if (state.screen === "summary") {
-      return h(SummaryScreen, { state, logFile: sessionLogFileRef.current });
+      return h(ScreenFrame, { state }, h(SummaryScreen, { state, logFile: sessionLogFileRef.current }));
     }
     return h(Text, null, "Unknown state");
   }

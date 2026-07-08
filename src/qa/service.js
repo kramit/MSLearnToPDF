@@ -179,6 +179,7 @@ async function auditLearningPathExport(root, appConfig, resolution, manifest, ma
     validation,
     issues,
     pdf: manifestEntry.pdf || "",
+    text: report?.outputs?.text || manifestEntry.text || "",
     report: reportFile ? relativePosix(root, reportFile) : "",
     reflection: manifestEntry.reflection || null,
     diagnostics: {

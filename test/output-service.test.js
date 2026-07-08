@@ -15,6 +15,7 @@ async function makeTempOutputRoot() {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "mslearn-output-"));
   await fs.mkdir(path.join(root, "pdf"), { recursive: true });
   await fs.mkdir(path.join(root, "html"), { recursive: true });
+  await fs.mkdir(path.join(root, "text"), { recursive: true });
   await fs.mkdir(path.join(root, "reports"), { recursive: true });
   await fs.mkdir(path.join(root, "logs"), { recursive: true });
   return root;
@@ -47,6 +48,10 @@ test("detects bundles, partial bundles, legacy files, and logs", async () => {
     "html"
   );
   await writeFileWithDirs(
+    path.join(root, "text", "AI-901-2026-06-20", "one.txt"),
+    "text"
+  );
+  await writeFileWithDirs(
     path.join(root, "reports", "AI-901-2026-06-20", "course-manifest.json"),
     "{}"
   );
@@ -76,6 +81,7 @@ test("detects bundles, partial bundles, legacy files, and logs", async () => {
   assert.deepEqual(inventory.items[1].presentAreas, {
     pdf: true,
     html: false,
+    text: false,
     reports: false,
     logs: false
   });
@@ -129,6 +135,7 @@ test("deletes selected output items only", async () => {
   const root = await makeTempOutputRoot();
   await writeFileWithDirs(path.join(root, "pdf", "AI-901-2026-06-20", "one.pdf"));
   await writeFileWithDirs(path.join(root, "html", "AI-901-2026-06-20", "one.html"));
+  await writeFileWithDirs(path.join(root, "text", "AI-901-2026-06-20", "one.txt"));
   await writeFileWithDirs(path.join(root, "pdf", "pilot.pdf"), "legacy");
   let inventory = await scanOutputInventory(root);
   const target = inventory.items.find((item) => item.id === "bundle:AI-901-2026-06-20");

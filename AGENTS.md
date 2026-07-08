@@ -61,7 +61,7 @@ It now has two user-facing flows:
 2. Refresh or reuse the certification poster catalog.
 3. Let the user select one or more course codes.
 4. Resolve each selected poster link into a course plus ordered learning paths.
-5. Convert each learning path into HTML, PDF, and reports.
+5. Convert each learning path into HTML, PDF, text, and reports.
 6. Validate PDF content and enforce reflection checks between:
    poster selection -> resolved UID/title -> PDF filename -> report -> manifest.
 7. Optionally run `src/qa/service.js` to audit each exported learning path back against the expected module/unit hierarchy and roll the results into a course-level QA report.
@@ -69,9 +69,11 @@ It now has two user-facing flows:
 ## Invariants
 
 - Course exports are one PDF per learning path.
+- Text exports are one compact `.txt` file per learning path for LLM ingestion.
 - Output folders are dated per course:
   `outputRoot/pdf/<COURSE>-YYYY-MM-DD/`
   `outputRoot/html/<COURSE>-YYYY-MM-DD/`
+  `outputRoot/text/<COURSE>-YYYY-MM-DD/`
   `outputRoot/reports/<COURSE>-YYYY-MM-DD/`
 - Cache data never lives inside the output tree.
 - External labs, videos, repositories, and docs remain links and are never crawled.

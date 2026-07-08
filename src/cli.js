@@ -83,6 +83,9 @@ async function convertLegacyConfig(root, args, legacyConfig, onEvent) {
   const outputPdfDir = legacyConfig.pdfOutputDir
     ? path.resolve(root, legacyConfig.pdfOutputDir)
     : path.join(root, "output", "pdf");
+  const outputTextDir = legacyConfig.textOutputDir
+    ? path.resolve(root, legacyConfig.textOutputDir)
+    : path.join(root, "output", "text");
   const outputReportDir = legacyConfig.reportOutputDir
     ? path.resolve(root, legacyConfig.reportOutputDir)
     : path.join(root, "output", "reports");
@@ -90,6 +93,7 @@ async function convertLegacyConfig(root, args, legacyConfig, onEvent) {
     ...legacyConfig,
     htmlOutputDir: outputHtmlDir,
     pdfOutputDir: outputPdfDir,
+    textOutputDir: outputTextDir,
     reportOutputDir: outputReportDir,
     locale: legacyConfig.locale || "en-us",
     paperFormat: legacyConfig.paperFormat || "A4",

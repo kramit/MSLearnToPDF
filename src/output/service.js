@@ -4,7 +4,7 @@ const { emitProgress } = require("../progress");
 const { compareCourseCodes, relativePosix, throwIfAborted } = require("../shared");
 
 const BUNDLE_REGEX = /^(.*)-(\d{4}-\d{2}-\d{2})$/;
-const ROOT_KINDS = ["pdf", "html", "reports"];
+const ROOT_KINDS = ["pdf", "html", "text", "reports"];
 
 function parseBundleName(name) {
   const match = String(name || "").match(BUNDLE_REGEX);
@@ -54,6 +54,7 @@ function createBundleItem(root, folderName, bundlePaths) {
   const presentAreas = {
     pdf: false,
     html: false,
+    text: false,
     reports: false,
     logs: false
   };
@@ -104,6 +105,7 @@ function createFileItem(root, kind, absolutePath, stats, subKind, isDirectory = 
     presentAreas: {
       pdf: kind === "pdf",
       html: kind === "html",
+      text: kind === "text",
       reports: kind === "reports",
       logs: kind === "logs"
     },
@@ -209,6 +211,7 @@ async function scanOutputInventory(outputRoot, options = {}) {
           presentAreas: {
             pdf: false,
             html: false,
+            text: false,
             reports: false,
             logs: true
           },
