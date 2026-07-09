@@ -33,6 +33,47 @@ async function createImageCacheIndex(imageCacheDir) {
   );
 }
 
+function looksLikeHtml(data) {
+  const head = data.slice(0, 512).toString("utf8").trimStart().toLowerCase();
+  return (
+    head.startsWith("<!doctype html") ||
+    head.startsWith("<html") ||
+    head.includes("<title>too many requests</title>") ||
+    head.startsWith("too many requests")
+  );
+}
+
+function validateImagePayload(contentType, data, absoluteUrl) {
+  const normalized = (contentType || "").split(";")[0].toLowerCase();
+  const inferred = normalized || mimeFromExtension(path.extname(new URL(absoluteUrl).pathname));
+  if (!inferred.startsWith("image/")) {
+    throw new Error(`Expected image response, received ${inferred || "unknown content type"}`);
+  }
+  if (looksLikeHtml(data)) {
+    throw new Error("Expected image response, received HTML");
+  }
+  return inferred;
+}
+
+function collectImageHrefs(markdown) {
+  const hrefs = [];
+  const seen = new Set();
+  marked.walkTokens(marked.lexer(markdown), (token) => {
+    if (token.type !== "image" || seen.has(token.href)) return;
+    seen.add(token.href);
+    hrefs.push(token.href);
+  });
+  return hrefs;
+}
+
+function isLinkedImageToken(token) {
+  return (
+    token.type === "link" &&
+    Array.isArray(token.tokens) &&
+    token.tokens.some((child) => child.type === "image")
+  );
+}
+
 async function downloadImage(rawUrl, unit, config, context) {
   const absoluteUrl = resolveLearnUrl(rawUrl, unit.url, config.locale, "image");
   if (context.imageData.has(absoluteUrl)) return context.imageData.get(absoluteUrl);
@@ -46,16 +87,25 @@ async function downloadImage(rawUrl, unit, config, context) {
       const file = path.join(context.imageCacheDir, existing);
       data = await fs.readFile(file);
       contentType = mimeFromExtension(path.extname(file));
-      emitProgress(context.onEvent, {
-        severity: "info",
-        stage: "cache-hit",
-        message: `Reused cached image ${absoluteUrl}`,
-        ...pathProgress(context.progressBase, {
-          unitUid: unit.uid,
-          unitTitle: unit.title
-        })
-      });
-    } else {
+      try {
+        contentType = validateImagePayload(contentType, data, absoluteUrl);
+        emitProgress(context.onEvent, {
+          severity: "info",
+          stage: "cache-hit",
+          message: `Reused cached image ${absoluteUrl}`,
+          ...pathProgress(context.progressBase, {
+            unitUid: unit.uid,
+            unitTitle: unit.title
+          })
+        });
+      } catch {
+        await fs.unlink(file).catch(() => {});
+        context.imageCacheIndex.delete(cacheKey);
+        data = undefined;
+        contentType = "";
+      }
+    }
+    if (!data) {
       emitProgress(context.onEvent, {
         severity: "info",
         stage: "download-image",
@@ -80,11 +130,12 @@ async function downloadImage(rawUrl, unit, config, context) {
       });
       contentType = response.headers.get("content-type") || "";
       data = downloaded;
+      contentType = validateImagePayload(contentType, data, absoluteUrl);
       const cacheName = `${cacheKey}${extensionFromContentType(contentType, absoluteUrl)}`;
       await fs.writeFile(path.join(context.imageCacheDir, cacheName), data);
       context.imageCacheIndex.set(cacheKey, cacheName);
     }
-    const dataUri = `data:${contentType.split(";")[0] || "image/png"};base64,${data.toString("base64")}`;
+    const dataUri = `data:${contentType || "image/png"};base64,${data.toString("base64")}`;
     context.imageData.set(absoluteUrl, dataUri);
     context.images.push({
       sourceUrl: absoluteUrl,
@@ -121,34 +172,40 @@ async function renderUnit(unit, config, context) {
   const isAssessment =
     parsed.metadata.module_assessment === "true" ||
     unit.uid.endsWith(".knowledge-check");
-  const imageRegex = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)/g;
-  let prepared = cleanMarkdown;
-  const imageReplacements = [];
-  let imageIndex = 0;
-  for (const match of cleanMarkdown.matchAll(imageRegex)) {
-    const sourceUrl = resolveLearnUrl(match[2], unit.url, config.locale, "image");
-    const dataUri = await downloadImage(match[2], unit, config, context);
-    const placeholder = `https://mslearn-to-pdf.invalid/image-${imageIndex++}`;
-    imageReplacements.push({
-      placeholder,
-      dataUri,
-      alt: match[1],
-      sourceUrl
+
+  const imageSources = new Map();
+  for (const href of collectImageHrefs(cleanMarkdown)) {
+    imageSources.set(href, {
+      dataUri: await downloadImage(href, unit, config, context),
+      sourceUrl: resolveLearnUrl(href, unit.url, config.locale, "image")
     });
-    prepared = prepared.replace(
-      match[0],
-      dataUri
-        ? `![${match[1]}](${placeholder})`
-        : `> **Image unavailable:** ${match[1] || "See the current Microsoft Learn unit."}`
-    );
   }
 
   const externalResources = [];
-  const html = marked.parse(prepared, {
+  const renderer = new marked.Renderer();
+  const defaultImageRenderer = renderer.image.bind(renderer);
+  renderer.image = (token) => {
+    if (token.href) return defaultImageRenderer(token);
+    return `<blockquote><p><strong>Image unavailable:</strong> ${escapeHtml(
+      token.text || "See the current Microsoft Learn unit."
+    )}</p></blockquote>`;
+  };
+  const html = marked.parse(cleanMarkdown, {
     gfm: true,
+    renderer,
     walkTokens(token) {
+      if (token.type === "image") {
+        const imageSource = imageSources.get(token.href);
+        token.href = imageSource?.dataUri || "";
+        return;
+      }
       if (token.type !== "link") return;
-      token.href = resolveLearnUrl(token.href, unit.url, config.locale, "link");
+      token.href = resolveLearnUrl(
+        token.href,
+        unit.url,
+        config.locale,
+        isLinkedImageToken(token) ? "image" : "link"
+      );
       if (isExternalResource(token.href)) {
         externalResources.push({
           url: token.href,
@@ -160,16 +217,6 @@ async function renderUnit(unit, config, context) {
   });
   context.externalResources.push(...externalResources);
   let decorated = html;
-  for (const replacement of imageReplacements) {
-    decorated = decorated.replaceAll(
-      `src="${replacement.placeholder}"`,
-      `src="${replacement.dataUri}"`
-    );
-    decorated = decorated.replaceAll(
-      replacement.placeholder,
-      escapeHtml(replacement.sourceUrl)
-    );
-  }
   decorated = decorated
     .replace(
       /<a href="([^"]+)"([^>]*)>([\s\S]*?)<\/a>/g,

@@ -74,15 +74,27 @@ npm run convert -- --url "https://learn.microsoft.com/en-us/training/paths/..." 
 
 The converter creates dated folders such as:
 
-- `output/pdf/AI-901-2026-06-20/`
-- `output/html/AI-901-2026-06-20/`
-- `output/reports/AI-901-2026-06-20/`
+- `output/AI-901-2026-06-20/pdf/`
+- `output/AI-901-2026-06-20/html/`
+- `output/AI-901-2026-06-20/txt/`
+- `output/AI-901-2026-06-20/epub/`
+- `output/AI-901-2026-06-20/log/`
 
-Each PDF is named:
+Each PDF, EPUB, and text-only LLM export is named from the same learning-path base:
 
 - `AI-901 - <Learning Path title> - 2026-06-20.pdf`
+- `AI-901 - <Learning Path title> - 2026-06-20.txt`
+- `AI-901 - <Learning Path title> - 2026-06-20.epub`
 
-The report folder includes a course manifest with source resolution details,
+The text export is a compact plain-text artifact for LLM chat/context ingestion.
+It keeps course, learning-path, module, unit, URL, assessment, and reviewed
+answer-key landmarks while stripping print-oriented layout.
+
+The EPUB export is a compact Kindle-friendly EPUB 3 package. It keeps normal
+lesson links but omits the separate source appendix, module assessment units,
+and answer keys.
+
+The log folder includes a course manifest with source resolution details,
 learning-path order, counts, warnings, failures, filenames, and validation
 results. Before a PDF is accepted, a reflection check confirms that its
 learning-path UID, displayed title, report title, and filename all match the
@@ -119,8 +131,8 @@ The QA runner:
 
 QA outputs are written to:
 
-- `output/reports/qa/<RUN-ID>/qa-summary.json`
-- `output/reports/qa/<RUN-ID>/qa-summary.md`
+- `output/qa-<RUN-ID>/log/qa-summary.json`
+- `output/qa-<RUN-ID>/log/qa-summary.md`
 
 Each course entry in the QA report includes:
 
@@ -131,6 +143,7 @@ Each course entry in the QA report includes:
 - embedded and missing image counts
 - external-resource counts
 - per-learning-path PDF and report paths
+- per-learning-path EPUB and text paths when present
 - detailed issues for missing modules, missing units, title drift, reflection failures, and PDF validation failures
 
 The QA command exits with a nonzero code if any course is partial or failed, so

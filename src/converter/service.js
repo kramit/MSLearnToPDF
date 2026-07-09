@@ -40,6 +40,8 @@ const {
   renderUnit,
   validateAnswers
 } = require("./content");
+const { writeEpubFile } = require("./epub");
+const { renderLlmText } = require("./text");
 
 function shouldSkipCourseMembershipCheck(resolution, uid) {
   return Boolean(
@@ -56,6 +58,16 @@ function createPathProgress(base, extra = {}) {
     learningPathTitle: base.learningPathTitle,
     ...extra
   };
+}
+
+function textOutputDirectory(pathConfig) {
+  if (pathConfig.textOutputDir) return pathConfig.textOutputDir;
+  const pdfDir = path.resolve(pathConfig.pdfOutputDir);
+  const pdfParent = path.dirname(pdfDir);
+  if (path.basename(pdfParent) === "pdf") {
+    return path.join(path.dirname(pdfParent), "txt", path.basename(pdfDir));
+  }
+  return path.join(path.dirname(pdfDir), "txt");
 }
 
 async function resolveCourseFromUrl(input, options) {
@@ -133,14 +145,17 @@ async function convertLearningPath(pathConfig, options) {
   const cacheRoot = path.dirname(hierarchyCacheFile);
   const markdownCacheDir = path.join(cacheRoot, "markdown");
   const imageCacheDir = path.join(cacheRoot, "images");
+  const textOutputDir = textOutputDirectory(pathConfig);
   await Promise.all(
     [
       markdownCacheDir,
       imageCacheDir,
       pathConfig.htmlOutputDir,
       pathConfig.pdfOutputDir,
+      textOutputDir,
+      pathConfig.epubOutputDir,
       pathConfig.reportOutputDir
-    ].map(ensureDir)
+    ].filter(Boolean).map(ensureDir)
   );
   const progressBase = {
     courseCode: pathConfig.courseCode,
@@ -357,7 +372,40 @@ async function convertLearningPath(pathConfig, options) {
   const fileBase = pathConfig.fileBase || pathConfig.outputBase;
   const htmlFile = path.join(pathConfig.htmlOutputDir, `${fileBase}.html`);
   const pdfFile = path.join(pathConfig.pdfOutputDir, `${fileBase}.pdf`);
+  const textFile = path.join(textOutputDir, `${fileBase}.txt`);
+  const epubFile = pathConfig.epubOutputDir
+    ? path.join(pathConfig.epubOutputDir, `${fileBase}.epub`)
+    : "";
   await fs.writeFile(htmlFile, html, "utf8");
+  await fs.writeFile(
+    textFile,
+    renderLlmText({
+      config: pathConfig,
+      course,
+      learningPath,
+      modules,
+      answerNotice: answerData.notice,
+      retrievedAt,
+      sourceUpdatedAt
+    }),
+    "utf8"
+  );
+  if (epubFile) {
+    emitProgress(onEvent, {
+      severity: "info",
+      stage: "render-epub",
+      message: `Generating EPUB ${epubFile}`,
+      ...createPathProgress(progressBase)
+    });
+    await writeEpubFile(epubFile, {
+      config: pathConfig,
+      course,
+      learningPath,
+      modules,
+      retrievedAt,
+      sourceUpdatedAt
+    });
+  }
 
   emitProgress(onEvent, {
     severity: "info",
@@ -392,7 +440,7 @@ async function convertLearningPath(pathConfig, options) {
     }
   }));
   const report = {
-    schemaVersion: 4,
+    schemaVersion: 5,
     retrievedAt,
     sourceUpdatedAt,
     course: {
@@ -439,7 +487,9 @@ async function convertLearningPath(pathConfig, options) {
     warnings: context.warnings,
     outputs: {
       html: outputPath(root, htmlFile),
-      pdf: outputPath(root, pdfFile)
+      pdf: outputPath(root, pdfFile),
+      text: outputPath(root, textFile),
+      epub: epubFile ? outputPath(root, epubFile) : ""
     }
   };
   const reportJsonFile = path.join(pathConfig.reportOutputDir, `${fileBase}.json`);
@@ -455,7 +505,7 @@ async function convertLearningPath(pathConfig, options) {
     message: `Completed ${learningPath.title}`,
     ...createPathProgress(progressBase)
   });
-  return { report, pdfFile, reportJsonFile, reportMarkdownFile };
+  return { report, pdfFile, textFile, epubFile, reportJsonFile, reportMarkdownFile };
 }
 
 async function convertCourseFromResolution(resolution, options) {
@@ -476,10 +526,10 @@ async function convertCourseFromResolution(resolution, options) {
   if (recreateOutput) {
     await recreateCourseOutputDirectories(directories, appConfig);
   }
-  await Promise.all(Object.values(directories).map(ensureDir));
+  await Promise.all([...new Set(Object.values(directories))].map(ensureDir));
 
   const manifest = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     courseCode: resolution.courseCode,
     courseUid: resolution.courseUid || null,
     courseTitle: resolution.courseTitle,
@@ -490,7 +540,7 @@ async function convertCourseFromResolution(resolution, options) {
     inputPageType: resolution.inputPageType || "Course",
     inputUid: resolution.inputUid || null,
     generatedDate: stamp,
-    outputDirectory: relativePosix(root, directories.pdfDirectory),
+    outputDirectory: relativePosix(root, directories.bundleDirectory),
     poster: posterInfo,
     discoveryWarnings: resolution.warnings || [],
     learningPaths: []
@@ -512,6 +562,8 @@ async function convertCourseFromResolution(resolution, options) {
       modules: 0,
       units: 0,
       pdf: "",
+      text: "",
+      epub: "",
       status: "pending",
       validation: null,
       reflection: null
@@ -559,6 +611,8 @@ async function convertCourseFromResolution(resolution, options) {
         fileBase,
         pdfOutputDir: directories.pdfDirectory,
         htmlOutputDir: directories.htmlDirectory,
+        textOutputDir: directories.textDirectory,
+        epubOutputDir: directories.epubDirectory,
         reportOutputDir: directories.reportDirectory,
         answersPath: answersFiles?.[uid] || null,
         skipCourseMembershipCheck: shouldSkipCourseMembershipCheck(
@@ -577,6 +631,8 @@ async function convertCourseFromResolution(resolution, options) {
         }
       };
       const pdfFile = path.join(directories.pdfDirectory, `${fileBase}.pdf`);
+      const textFile = path.join(directories.textDirectory, `${fileBase}.txt`);
+      const epubFile = path.join(directories.epubDirectory, `${fileBase}.epub`);
       manifestEntry.title = parent.title;
       manifestEntry.modules = hierarchy.modules.length;
       manifestEntry.units = hierarchy.modules.reduce(
@@ -584,6 +640,8 @@ async function convertCourseFromResolution(resolution, options) {
         0
       );
       manifestEntry.pdf = relativePosix(root, pdfFile);
+      manifestEntry.text = relativePosix(root, textFile);
+      manifestEntry.epub = relativePosix(root, epubFile);
       const result = await convertLearningPath(pathConfig, {
         appConfig,
         root,

@@ -31,6 +31,8 @@ function manifestSnapshot(manifest) {
       modules: entry.modules,
       units: entry.units,
       pdf: entry.pdf,
+      text: entry.text || "",
+      epub: entry.epub || "",
       error: entry.error || "",
       reflection: entry.reflection || null,
       validation: entry.validation || null

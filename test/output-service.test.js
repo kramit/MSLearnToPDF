@@ -13,10 +13,6 @@ const {
 
 async function makeTempOutputRoot() {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "mslearn-output-"));
-  await fs.mkdir(path.join(root, "pdf"), { recursive: true });
-  await fs.mkdir(path.join(root, "html"), { recursive: true });
-  await fs.mkdir(path.join(root, "reports"), { recursive: true });
-  await fs.mkdir(path.join(root, "logs"), { recursive: true });
   return root;
 }
 
@@ -36,18 +32,26 @@ test("parses dated bundle folder names", () => {
   });
 });
 
-test("detects bundles, partial bundles, legacy files, and logs", async () => {
+test("detects bundle-first outputs plus legacy type-first files and logs", async () => {
   const root = await makeTempOutputRoot();
   await writeFileWithDirs(
-    path.join(root, "pdf", "AI-901-2026-06-20", "one.pdf"),
+    path.join(root, "AI-901-2026-06-20", "pdf", "one.pdf"),
     "pdf"
   );
   await writeFileWithDirs(
-    path.join(root, "html", "AI-901-2026-06-20", "one.html"),
+    path.join(root, "AI-901-2026-06-20", "html", "one.html"),
     "html"
   );
   await writeFileWithDirs(
-    path.join(root, "reports", "AI-901-2026-06-20", "course-manifest.json"),
+    path.join(root, "AI-901-2026-06-20", "txt", "one.txt"),
+    "txt"
+  );
+  await writeFileWithDirs(
+    path.join(root, "AI-901-2026-06-20", "epub", "one.epub"),
+    "epub"
+  );
+  await writeFileWithDirs(
+    path.join(root, "AI-901-2026-06-20", "log", "course-manifest.json"),
     "{}"
   );
   await writeFileWithDirs(
@@ -76,8 +80,16 @@ test("detects bundles, partial bundles, legacy files, and logs", async () => {
   assert.deepEqual(inventory.items[1].presentAreas, {
     pdf: true,
     html: false,
-    reports: false,
-    logs: false
+    txt: false,
+    epub: false,
+    log: false
+  });
+  assert.deepEqual(inventory.items[0].presentAreas, {
+    pdf: true,
+    html: true,
+    txt: true,
+    epub: true,
+    log: true
   });
 });
 
@@ -103,9 +115,9 @@ test("standalone directories keep recursive file counts and byte totals", async 
 
 test("sorts bundles by course family and newest date first", async () => {
   const root = await makeTempOutputRoot();
-  await writeFileWithDirs(path.join(root, "pdf", "AZ-104-2026-06-19", "a.pdf"));
-  await writeFileWithDirs(path.join(root, "pdf", "AZ-104-2026-06-20", "b.pdf"));
-  await writeFileWithDirs(path.join(root, "pdf", "AI-901-2026-06-18", "c.pdf"));
+  await writeFileWithDirs(path.join(root, "AZ-104-2026-06-19", "pdf", "a.pdf"));
+  await writeFileWithDirs(path.join(root, "AZ-104-2026-06-20", "pdf", "b.pdf"));
+  await writeFileWithDirs(path.join(root, "AI-901-2026-06-18", "pdf", "c.pdf"));
   const inventory = await scanOutputInventory(root);
   assert.deepEqual(
     inventory.items.map((item) => item.id),
@@ -127,8 +139,9 @@ test("returns an empty inventory for an empty output root", async () => {
 
 test("deletes selected output items only", async () => {
   const root = await makeTempOutputRoot();
-  await writeFileWithDirs(path.join(root, "pdf", "AI-901-2026-06-20", "one.pdf"));
-  await writeFileWithDirs(path.join(root, "html", "AI-901-2026-06-20", "one.html"));
+  await writeFileWithDirs(path.join(root, "AI-901-2026-06-20", "pdf", "one.pdf"));
+  await writeFileWithDirs(path.join(root, "AI-901-2026-06-20", "html", "one.html"));
+  await writeFileWithDirs(path.join(root, "AI-901-2026-06-20", "txt", "one.txt"));
   await writeFileWithDirs(path.join(root, "pdf", "pilot.pdf"), "legacy");
   let inventory = await scanOutputInventory(root);
   const target = inventory.items.find((item) => item.id === "bundle:AI-901-2026-06-20");
@@ -142,7 +155,7 @@ test("deletes selected output items only", async () => {
 
 test("cleanOutputRoot removes everything inside output root but preserves the root", async () => {
   const root = await makeTempOutputRoot();
-  await writeFileWithDirs(path.join(root, "pdf", "AI-901-2026-06-20", "one.pdf"));
+  await writeFileWithDirs(path.join(root, "AI-901-2026-06-20", "pdf", "one.pdf"));
   await writeFileWithDirs(path.join(root, "logs", "session.log"), "log");
   await cleanOutputRoot(root);
   const remaining = await fs.readdir(root);
@@ -170,7 +183,7 @@ test("deleteOutputItems tolerates missing targets with warnings", async () => {
   const result = await deleteOutputItems(root, [
     {
       label: "ghost",
-      deleteTargets: [path.join(root, "pdf", "missing-folder")]
+      deleteTargets: [path.join(root, "missing-folder")]
     }
   ]);
   assert.equal(result.warnings.length, 1);

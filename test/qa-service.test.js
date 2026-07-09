@@ -115,7 +115,7 @@ test("makeQaMarkdownReport includes detailed troubleshooting references", () => 
     completedCourses: 0,
     partialCourses: 1,
     failedCourses: 0,
-    eventLog: "output/reports/qa/20260620-120000/qa-events.jsonl",
+    eventLog: "output/qa-20260620-120000/log/qa-events.jsonl",
     totals: {
       learningPaths: 1,
       learningPathsPassed: 0,
@@ -145,11 +145,11 @@ test("makeQaMarkdownReport includes detailed troubleshooting references", () => 
           externalResources: 2
         },
         issues: ["Manifest is missing learning-path UID learn.wwl.explore-identity-azure-active-directory"],
-        reportDirectory: "output/reports/SC-300-2026-06-20",
+        reportDirectory: "output/SC-300-2026-06-20/log",
         diagnostics: {
           eventCount: 12,
-          eventLog: "output/reports/qa/20260620-120000/qa-events.jsonl",
-          manifestFile: "output/reports/SC-300-2026-06-20/course-manifest.json",
+          eventLog: "output/qa-20260620-120000/log/qa-events.jsonl",
+          manifestFile: "output/SC-300-2026-06-20/log/course-manifest.json",
           resolution: {
             originalUrl: "https://learn.microsoft.com/en-us/credentials/certifications/identity-and-access-administrator/",
             normalizedUrl: "https://learn.microsoft.com/en-us/credentials/certifications/identity-and-access-administrator/",
@@ -181,8 +181,8 @@ test("makeQaMarkdownReport includes detailed troubleshooting references", () => 
             imagesEmbedded: 1,
             imagesMissing: 0,
             externalResources: 2,
-            pdf: "output/pdf/SC-300-2026-06-20/example.pdf",
-            report: "output/reports/SC-300-2026-06-20/example.json",
+            pdf: "output/SC-300-2026-06-20/pdf/example.pdf",
+            report: "output/SC-300-2026-06-20/log/example.json",
             validation: { status: "failed", pages: 10 },
             reflection: { status: "failed" },
             warnings: ["Image unavailable: https://example.invalid/example.png"],
@@ -193,8 +193,8 @@ test("makeQaMarkdownReport includes detailed troubleshooting references", () => 
     ]
   });
 
-  assert.match(markdown, /QA event log: output\/reports\/qa\/20260620-120000\/qa-events\.jsonl/);
-  assert.match(markdown, /Manifest file: output\/reports\/SC-300-2026-06-20\/course-manifest\.json/);
+  assert.match(markdown, /QA event log: output\/qa-20260620-120000\/log\/qa-events\.jsonl/);
+  assert.match(markdown, /Manifest file: output\/SC-300-2026-06-20\/log\/course-manifest\.json/);
   assert.match(markdown, /Resolution Diagnostics/);
   assert.match(markdown, /Conversion Diagnostics/);
   assert.match(markdown, /Report warnings:/);
@@ -247,7 +247,7 @@ test("runQaSuite orchestrates an explicit URL and writes consolidated artifacts"
         },
         issues: [],
         learningPaths: [],
-        reportDirectory: "output/reports/AI-901-2026-06-21",
+        reportDirectory: "output/AI-901-2026-06-21/log",
         diagnostics: {}
       })
     }

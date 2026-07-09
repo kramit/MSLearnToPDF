@@ -23,6 +23,52 @@ function readyState() {
   });
 }
 
+test("startup ready opens the launch mode selector", () => {
+  const state = readyState();
+  assert.equal(state.screen, "mode-select");
+  assert.equal(state.modeCursor, 0);
+});
+
+test("supports launch mode navigation and custom URL editing", () => {
+  let state = readyState();
+  state = reduce(state, { type: "mode/cursor-delta", delta: 1 });
+  assert.equal(state.modeCursor, 1);
+  state = reduce(state, { type: "mode/cursor-delta", delta: 1 });
+  assert.equal(state.modeCursor, 2);
+  state = reduce(state, { type: "mode/cursor-delta", delta: 1 });
+  assert.equal(state.modeCursor, 2);
+  state = reduce(state, { type: "mode/cursor-delta", delta: -1 });
+  assert.equal(state.modeCursor, 1);
+  state = reduce(state, { type: "mode/open-custom-url" });
+  assert.equal(state.screen, "custom-url");
+  state = reduce(state, {
+    type: "custom-url/set",
+    value: "https://learn.microsoft.com/en-us/training/paths/dashboard-in-a-day/"
+  });
+  assert.match(state.customUrl.value, /dashboard-in-a-day/);
+  state = reduce(state, { type: "custom-url/set", value: "" });
+  assert.equal(state.customUrl.value, "");
+  state = reduce(state, { type: "nav/back" });
+  assert.equal(state.screen, "mode-select");
+});
+
+test("catalog loading and replacement opens the catalog route", () => {
+  let state = readyState();
+  state = reduce(state, {
+    type: "catalog/loading",
+    message: "Loading cached certification poster"
+  });
+  assert.equal(state.screen, "startup");
+  state = reduce(state, {
+    type: "catalog/replace",
+    catalog: {
+      entries: [{ code: "AI-900", title: "Azure AI Fundamentals" }]
+    }
+  });
+  assert.equal(state.screen, "catalog");
+  assert.equal(getFilteredEntries(state).length, 1);
+});
+
 test("filters entries and preserves a safe cursor", () => {
   let state = readyState();
   state = reduce(state, { type: "catalog/search-set", value: "AI-" });

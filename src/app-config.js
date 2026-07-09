@@ -16,8 +16,8 @@ const DEFAULT_APP_CONFIG = {
   theme: "azure"
 };
 
-function resolveSetting(configDir, value) {
-  return path.resolve(configDir, value);
+function resolveSetting(baseDir, value) {
+  return path.resolve(baseDir, value);
 }
 
 function validateAppConfig(config) {
@@ -44,7 +44,7 @@ async function loadAppConfig(root, configPath) {
     configFile: file,
     configDirectory: configDir
   };
-  config.outputRoot = resolveSetting(configDir, config.outputRoot);
+  config.outputRoot = resolveSetting(root, config.outputRoot);
   config.cacheRoot = resolveSetting(configDir, config.cacheRoot);
   validateAppConfig(config);
   return config;

@@ -4,7 +4,9 @@ const { emitProgress } = require("../progress");
 const { compareCourseCodes, relativePosix, throwIfAborted } = require("../shared");
 
 const BUNDLE_REGEX = /^(.*)-(\d{4}-\d{2}-\d{2})$/;
-const ROOT_KINDS = ["pdf", "html", "reports"];
+const BUNDLE_KINDS = ["pdf", "html", "txt", "epub", "log"];
+const LEGACY_ROOT_KINDS = ["pdf", "html", "text", "reports"];
+const LEGACY_ROOTS = new Set([...LEGACY_ROOT_KINDS, "logs"]);
 
 function parseBundleName(name) {
   const match = String(name || "").match(BUNDLE_REGEX);
@@ -54,14 +56,16 @@ function createBundleItem(root, folderName, bundlePaths) {
   const presentAreas = {
     pdf: false,
     html: false,
-    reports: false,
-    logs: false
+    txt: false,
+    epub: false,
+    log: false
   };
   const deleteTargets = [];
   let fileCount = 0;
   let bytes = 0;
   for (const [kind, info] of Object.entries(bundlePaths)) {
-    presentAreas[kind] = Boolean(info);
+    const area = kind === "text" ? "txt" : kind === "reports" || kind === "logs" ? "log" : kind;
+    if (Object.hasOwn(presentAreas, area)) presentAreas[area] = Boolean(info);
     if (info) {
       deleteTargets.push(info.absolutePath);
       fileCount += info.fileCount;
@@ -93,6 +97,7 @@ function createBundleItem(root, folderName, bundlePaths) {
 
 function createFileItem(root, kind, absolutePath, stats, subKind, isDirectory = false) {
   const name = path.basename(absolutePath);
+  const area = kind === "text" ? "txt" : kind === "reports" || kind === "logs" ? "log" : kind;
   return {
     id: `${subKind}:${kind}:${name}`,
     kind: subKind,
@@ -102,10 +107,11 @@ function createFileItem(root, kind, absolutePath, stats, subKind, isDirectory = 
     absolutePath,
     relativePath: relativePosix(root, absolutePath),
     presentAreas: {
-      pdf: kind === "pdf",
-      html: kind === "html",
-      reports: kind === "reports",
-      logs: kind === "logs"
+      pdf: area === "pdf",
+      html: area === "html",
+      txt: area === "txt",
+      epub: area === "epub",
+      log: area === "log"
     },
     deleteTargets: [absolutePath],
     fileCount: stats.fileCount ?? 1,
@@ -118,7 +124,7 @@ function createFileItem(root, kind, absolutePath, stats, subKind, isDirectory = 
   };
 }
 
-async function readRootKind(outputRoot, kind, bundleMap, standaloneItems) {
+async function readLegacyRootKind(outputRoot, kind, bundleMap, standaloneItems) {
   const rootPath = path.join(outputRoot, kind);
   if (!(await pathExists(rootPath))) return;
   const entries = await fs.readdir(rootPath, { withFileTypes: true });
@@ -146,6 +152,60 @@ async function readRootKind(outputRoot, kind, bundleMap, standaloneItems) {
       const stats = await fs.lstat(absolutePath);
       standaloneItems.push(createFileItem(outputRoot, kind, absolutePath, stats, "legacy-file"));
     }
+  }
+}
+
+async function readBundleFirstItems(outputRoot, bundleItems, standaloneItems) {
+  if (!(await pathExists(outputRoot))) return;
+  const entries = await fs.readdir(outputRoot, { withFileTypes: true });
+  for (const entry of entries) {
+    const absolutePath = path.join(outputRoot, entry.name);
+    if (LEGACY_ROOTS.has(entry.name)) continue;
+    if (!entry.isDirectory()) {
+      const stats = await fs.lstat(absolutePath);
+      standaloneItems.push(createFileItem(outputRoot, "root", absolutePath, stats, "legacy-file"));
+      continue;
+    }
+    const parsed = parseBundleName(entry.name);
+    const isQaBundle = /^qa-\d{8}-\d{6}$/.test(entry.name);
+    if (!parsed.courseCode && !isQaBundle) {
+      const stats = await statTree(absolutePath);
+      standaloneItems.push(createFileItem(outputRoot, "root", absolutePath, stats, "legacy-file", true));
+      continue;
+    }
+    const bundlePaths = {};
+    for (const kind of BUNDLE_KINDS) {
+      const childPath = path.join(absolutePath, kind);
+      if (await pathExists(childPath)) {
+        bundlePaths[kind] = { absolutePath: childPath, ...(await statTree(childPath)) };
+      }
+    }
+    if (!Object.keys(bundlePaths).length) {
+      const stats = await statTree(absolutePath);
+      standaloneItems.push(createFileItem(outputRoot, "root", absolutePath, stats, "legacy-file", true));
+      continue;
+    }
+    const stats = await statTree(absolutePath);
+    bundleItems.push({
+      ...createBundleItem(outputRoot, entry.name, bundlePaths),
+      id: isQaBundle ? `qa-bundle:${entry.name}` : `bundle:${entry.name}`,
+      kind: isQaBundle ? "qa-bundle" : "bundle",
+      courseCode: isQaBundle ? "QA" : parsed.courseCode,
+      date: isQaBundle ? entry.name.replace(/^qa-/, "") : parsed.date,
+      absolutePath,
+      deleteTargets: [absolutePath],
+      fileCount: stats.fileCount,
+      bytes: stats.bytes,
+      details: {
+        folderName: entry.name,
+        roots: Object.fromEntries(
+          Object.entries(bundlePaths).map(([kind, info]) => [
+            kind,
+            relativePosix(outputRoot, info.absolutePath)
+          ])
+        )
+      }
+    });
   }
 }
 
@@ -183,10 +243,12 @@ async function scanOutputInventory(outputRoot, options = {}) {
     message: `Scanning output inventory at ${outputRoot}`
   });
   const bundleMap = new Map();
+  const bundleFirstItems = [];
   const standaloneItems = [];
-  for (const kind of ROOT_KINDS) {
+  await readBundleFirstItems(outputRoot, bundleFirstItems, standaloneItems);
+  for (const kind of LEGACY_ROOT_KINDS) {
     throwIfAborted(signal);
-    await readRootKind(outputRoot, kind, bundleMap, standaloneItems);
+    await readLegacyRootKind(outputRoot, kind, bundleMap, standaloneItems);
   }
 
   const logItems = [];
@@ -209,8 +271,9 @@ async function scanOutputInventory(outputRoot, options = {}) {
           presentAreas: {
             pdf: false,
             html: false,
-            reports: false,
-            logs: true
+            txt: false,
+            epub: false,
+            log: true
           },
           deleteTargets: [absolutePath],
           fileCount: tree.fileCount,
@@ -229,7 +292,12 @@ async function scanOutputInventory(outputRoot, options = {}) {
   const bundleItems = [...bundleMap.entries()].map(([folderName, bundlePaths]) =>
     createBundleItem(outputRoot, folderName, bundlePaths)
   );
-  const items = sortOutputItems([...bundleItems, ...standaloneItems, ...logItems]);
+  const items = sortOutputItems([
+    ...bundleFirstItems,
+    ...bundleItems,
+    ...standaloneItems,
+    ...logItems
+  ]);
   const totalBytes = items.reduce((sum, item) => sum + item.bytes, 0);
   const totalFiles = items.reduce((sum, item) => sum + item.fileCount, 0);
   return {

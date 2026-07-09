@@ -27,6 +27,8 @@ function makeQaMarkdownReport(summary) {
      - Images embedded/missing: ${pathAudit.imagesEmbedded}/${pathAudit.imagesMissing}
      - External resources: ${pathAudit.externalResources}
      - PDF: ${pathAudit.pdf || "(missing)"}
+     - Text: ${pathAudit.text || "(missing)"}
+     - EPUB: ${pathAudit.epub || "(missing)"}
      - Report: ${pathAudit.report || "(missing)"}
      - Validation: ${pathAudit.validation?.status || "not-run"}${pathAudit.validation?.pages ? ` (${pathAudit.validation.pages} pages)` : ""}
      - Reflection: ${pathAudit.reflection?.status || "not-recorded"}

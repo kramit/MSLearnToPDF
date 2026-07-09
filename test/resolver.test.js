@@ -227,13 +227,13 @@ test("AB-730 course resolves a hyphenated learning-path UID", async () => {
   ]);
 });
 
-test("direct learning path requires an explicit course code when none is present", async () => {
-  await assert.rejects(
-    fixtureResolver(
-      "https://learn.microsoft.com/en-us/training/paths/ai-concepts/"
-    ),
-    /Supply --course-code/
+test("direct learning path without a course code uses the URL slug as an export label", async () => {
+  const standalone = await fixtureResolver(
+    "https://learn.microsoft.com/en-us/training/paths/ai-concepts/"
   );
+  assert.equal(standalone.courseCode, "AI-CONCEPTS");
+  assert.deepEqual(standalone.learningPathUids, ["learn.ai-technical-concepts"]);
+
   const result = await fixtureResolver(
     "https://learn.microsoft.com/en-us/training/paths/ai-concepts/",
     { courseCodeOverride: "AI-901" }
