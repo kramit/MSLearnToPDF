@@ -43,11 +43,11 @@ function failedCourseResult(root, appConfig, eventLogFile, item, options = {}) {
     resolution && manifest?.generatedDate
       ? relativePosix(
           root,
-          path.join(
-            appConfig.outputRoot,
-            "reports",
-            `${resolution.courseCode}-${manifest.generatedDate}`
-          )
+          buildOutputDirectories(
+            appConfig,
+            resolution.courseCode,
+            manifest.generatedDate
+          ).reportDirectory
         )
       : "";
   const manifestFile =
@@ -55,9 +55,8 @@ function failedCourseResult(root, appConfig, eventLogFile, item, options = {}) {
       ? relativePosix(
           root,
           path.join(
-            appConfig.outputRoot,
-            "reports",
-            `${courseCode}-${manifest.generatedDate}`,
+            buildOutputDirectories(appConfig, courseCode, manifest.generatedDate)
+              .reportDirectory,
             "course-manifest.json"
           )
         )
@@ -180,6 +179,7 @@ async function auditLearningPathExport(root, appConfig, resolution, manifest, ma
     issues,
     pdf: manifestEntry.pdf || "",
     text: report?.outputs?.text || manifestEntry.text || "",
+    epub: report?.outputs?.epub || manifestEntry.epub || "",
     report: reportFile ? relativePosix(root, reportFile) : "",
     reflection: manifestEntry.reflection || null,
     diagnostics: {
@@ -232,11 +232,11 @@ async function auditCourseExport(root, appConfig, resolution, manifest, options)
     };
   }
 
-  const reportDirectory = path.join(
-    appConfig.outputRoot,
-    "reports",
-    `${resolution.courseCode}-${manifest.generatedDate}`
-  );
+  const reportDirectory = buildOutputDirectories(
+    appConfig,
+    resolution.courseCode,
+    manifest.generatedDate
+  ).reportDirectory;
   if (manifest.learningPaths.length !== resolution.learningPathUids.length) {
     courseIssues.push(
       `Learning-path count mismatch: expected ${resolution.learningPathUids.length}, found ${manifest.learningPaths.length}`
@@ -347,7 +347,7 @@ async function runQaSuite(options) {
     dependencies.convertCourseFromResolution || convertCourseFromResolution;
   const auditCourse = dependencies.auditCourseExport || auditCourseExport;
   const runId = timestampStamp();
-  const qaDirectory = path.join(appConfig.outputRoot, "reports", "qa", runId);
+  const qaDirectory = path.join(appConfig.outputRoot, `qa-${runId}`, "log");
   await fs.mkdir(qaDirectory, { recursive: true });
   const eventLogFile = path.join(qaDirectory, "qa-events.jsonl");
   const eventLogState = {

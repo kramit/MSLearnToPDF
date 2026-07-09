@@ -103,7 +103,8 @@ test("convertPreparedQueue preserves initial failures and stops after cancellati
   const state = {
     config: {
       refreshCourseContent: false,
-      posterUrl: "poster"
+      posterUrl: "poster",
+      outputRoot: "output"
     },
     catalog: { poster: null },
     queue: [
@@ -123,8 +124,9 @@ test("convertPreparedQueue preserves initial failures and stops after cancellati
   let calls = 0;
   const results = await convertPreparedQueue(state, {
     root: "root",
-    convertCourse: async () => {
+    convertCourse: async (resolution, options) => {
       calls += 1;
+      assert.match(options.stamp, /^\d{4}-\d{2}-\d{2}$/);
       const error = new Error("stop");
       error.name = "AbortError";
       throw error;

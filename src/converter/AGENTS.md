@@ -48,7 +48,7 @@ The TUI log and the CLI reporter both depend on this shape. Add fields if useful
 
 ## Output Rules
 
-- The converter writes HTML, PDF, compact text, JSON report, Markdown report, and course manifest files.
+- The converter writes HTML, PDF, EPUB, compact text, JSON report, Markdown report, and course manifest files.
 - `convertCourseFromResolution` recreates only the selected course/date folders.
 - `convertLearningPath` keeps cached Markdown and images outside the output tree.
 - The optional `stamp` parameter on `convertCourseFromResolution` lets higher-level QA runs keep a stable date folder while still using the same export pipeline.

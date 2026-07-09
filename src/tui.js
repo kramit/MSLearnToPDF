@@ -8,7 +8,7 @@ const { convertCourseFromResolution, resolveCourseFromUrl } = require("./convert
 const { ensureDir } = require("./lib");
 const { cleanOutputRoot, deleteOutputItems, scanOutputInventory } = require("./output/service");
 const { runQaSuite } = require("./qa/service");
-const { formatBytes, formatDuration, timestampStamp } = require("./shared");
+const { formatBytes, formatDuration } = require("./shared");
 const { getFilteredEntries, getFilteredOutputItems, initialState, reduce } = require("./tui/state");
 const { parseCommandArgs } = require("./cli/args");
 const { buildTheme, formatRate, lineForEvent } = require("./tui/format");
@@ -129,6 +129,10 @@ async function main() {
       {
         title: "Paste learning path URL",
         detail: "Process a standalone Microsoft Learn training path into PDF."
+      },
+      {
+        title: "Manage output",
+        detail: "Inspect or clean existing generated output before exporting."
       }
     ];
     return h(
@@ -677,6 +681,12 @@ async function main() {
         .map((pathEntry) => pathEntry.text)
         .filter(Boolean)
     );
+    const epubs = successful.flatMap((item) =>
+      item.manifest.learningPaths
+        .filter((pathEntry) => pathEntry.status === "complete")
+        .map((pathEntry) => pathEntry.epub)
+        .filter(Boolean)
+    );
     return h(
       Box,
       { flexDirection: "column", padding: 1 },
@@ -715,6 +725,11 @@ async function main() {
       ),
       h(
         Panel,
+        { title: "Generated EPUBs" },
+        ...(epubs.length ? epubs.map((epub) => h(Text, { key: epub }, epub)) : [h(Text, { key: "none" }, "No EPUBs generated")])
+      ),
+      h(
+        Panel,
         { title: "Artifacts" },
         h(Text, null, `Logs: ${logFile || "(none)"}`),
         h(Text, null, `Output root: ${state.config?.outputRoot || "-"}`)
@@ -748,17 +763,12 @@ async function main() {
     const convertAbortRef = useRef(null);
     const refreshAbortRef = useRef(null);
 
-    async function ensureSessionLogFile(forceNew = false) {
-      const outputRoot = state.config?.outputRoot;
-      if (!outputRoot) return;
+    async function ensureSessionLogFile(logFile, forceNew = false) {
+      if (!logFile) return;
       const current = sessionLogFileRef.current;
       if (!forceNew && current && (await fileExists(current))) return;
-      await ensureDir(path.join(outputRoot, "logs"));
-      sessionLogFileRef.current = path.join(
-        outputRoot,
-        "logs",
-        `${timestampStamp()}.log`
-      );
+      await ensureDir(path.dirname(logFile));
+      sessionLogFileRef.current = logFile;
       await fs.writeFile(
         sessionLogFileRef.current,
         `MSLearnToPDF session ${new Date().toISOString()}\n`,
@@ -779,17 +789,6 @@ async function main() {
         dispatch({ type: "startup/message", message: "Loading configuration" });
         const appConfig = await loadAppConfig(root, args.config);
         await ensureWritableDirectory(appConfig.outputRoot);
-        const logDir = path.join(appConfig.outputRoot, "logs");
-        await ensureDir(logDir);
-        sessionLogFileRef.current = path.join(
-          logDir,
-          `${timestampStamp()}.log`
-        );
-        await fs.writeFile(
-          sessionLogFileRef.current,
-          `MSLearnToPDF session ${new Date().toISOString()}\n`,
-          "utf8"
-        );
         dispatch({ type: "startup/ready", config: appConfig });
       } catch (error) {
         dispatch({ type: "startup/error", error: error.message });
@@ -833,7 +832,6 @@ async function main() {
     async function refreshCatalog() {
       if (!state.config) return;
       try {
-        await ensureSessionLogFile();
         refreshAbortRef.current?.abort();
         const controller = new AbortController();
         refreshAbortRef.current = controller;
@@ -855,7 +853,6 @@ async function main() {
     async function openCatalog() {
       if (!state.config) return;
       try {
-        await ensureSessionLogFile();
         refreshAbortRef.current?.abort();
         const controller = new AbortController();
         refreshAbortRef.current = controller;
@@ -929,9 +926,20 @@ async function main() {
           });
           sessionLogFileRef.current = "";
         } else {
-          const deletingCurrentLog = confirmation.items.some((item) =>
-            item.deleteTargets?.includes(sessionLogFileRef.current)
-          );
+          const currentLog = sessionLogFileRef.current
+            ? path.resolve(sessionLogFileRef.current)
+            : "";
+          const deletingCurrentLog = currentLog
+            ? confirmation.items.some((item) =>
+                item.deleteTargets?.some((target) => {
+                  const resolvedTarget = path.resolve(target);
+                  return (
+                    resolvedTarget === currentLog ||
+                    currentLog.startsWith(`${resolvedTarget}${path.sep}`)
+                  );
+                })
+              )
+            : false;
           await deleteOutputItems(state.config.outputRoot, confirmation.items, {
             onEvent: (event) => appendSessionLog(event)
           });
@@ -948,7 +956,6 @@ async function main() {
 
     async function prepareQueue() {
       if (!state.config || !state.catalog) return;
-      await ensureSessionLogFile();
       if (!state.selectedCodes.length) return;
       dispatch({ type: "queue/preparing" });
       try {
@@ -969,7 +976,6 @@ async function main() {
 
     async function prepareCustomQueue() {
       if (!state.config) return;
-      await ensureSessionLogFile();
       dispatch({ type: "queue/preparing" });
       try {
         const queue = await prepareCustomUrlQueue(state, {
@@ -989,7 +995,6 @@ async function main() {
 
     async function startConversion() {
       if (!state.config) return;
-      await ensureSessionLogFile();
       if (state.qaMode === "all-poster") {
         dispatch({
           type: "convert/start",
@@ -1027,6 +1032,7 @@ async function main() {
               }
             }
           });
+          sessionLogFileRef.current = output.eventLog || "";
           dispatch({
             type: "convert/summary",
             summary: {
@@ -1076,7 +1082,11 @@ async function main() {
         signal: controller.signal,
         convertCourse: convertCourseFromResolution,
         onEvent: (event, queueIndex) => {
-          appendSessionLog(event);
+          if (event.stage === "course-start" && event.logFile) {
+            ensureSessionLogFile(event.logFile, true).then(() => appendSessionLog(event));
+          } else {
+            appendSessionLog(event);
+          }
           dispatch({
             type: "convert/progress",
             event,
@@ -1153,6 +1163,8 @@ async function main() {
         else if (key.return && state.modeCursor === 0) openCatalog();
         else if (key.return && state.modeCursor === 1) {
           dispatch({ type: "mode/open-custom-url" });
+        } else if (key.return && state.modeCursor === 2) {
+          openOutputManager();
         }
         return;
       }

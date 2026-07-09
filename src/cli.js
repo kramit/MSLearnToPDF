@@ -85,15 +85,19 @@ async function convertLegacyConfig(root, args, legacyConfig, onEvent) {
     : path.join(root, "output", "pdf");
   const outputTextDir = legacyConfig.textOutputDir
     ? path.resolve(root, legacyConfig.textOutputDir)
-    : path.join(root, "output", "text");
+    : path.join(root, "output", "txt");
+  const outputEpubDir = legacyConfig.epubOutputDir
+    ? path.resolve(root, legacyConfig.epubOutputDir)
+    : path.join(root, "output", "epub");
   const outputReportDir = legacyConfig.reportOutputDir
     ? path.resolve(root, legacyConfig.reportOutputDir)
-    : path.join(root, "output", "reports");
+    : path.join(root, "output", "log");
   const pathConfig = {
     ...legacyConfig,
     htmlOutputDir: outputHtmlDir,
     pdfOutputDir: outputPdfDir,
     textOutputDir: outputTextDir,
+    epubOutputDir: outputEpubDir,
     reportOutputDir: outputReportDir,
     locale: legacyConfig.locale || "en-us",
     paperFormat: legacyConfig.paperFormat || "A4",
@@ -109,6 +113,7 @@ async function convertLegacyConfig(root, args, legacyConfig, onEvent) {
   const validation = await validatePdf(result.pdfFile, report);
   console.log(`Validation passed: ${JSON.stringify(validation)}`);
   console.log(`PDF: ${relativePosix(root, result.pdfFile)}`);
+  if (result.epubFile) console.log(`EPUB: ${relativePosix(root, result.epubFile)}`);
   console.log(`Report: ${relativePosix(root, result.reportJsonFile)}`);
   return result;
 }

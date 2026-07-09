@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.80",
+    "fflate": "0.8.3",
     "ink": "^7.0.4",
     "marked": "^16.4.1",
     "pdfjs-dist": "^5.4.394",

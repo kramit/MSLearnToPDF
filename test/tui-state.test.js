@@ -33,6 +33,12 @@ test("supports launch mode navigation and custom URL editing", () => {
   let state = readyState();
   state = reduce(state, { type: "mode/cursor-delta", delta: 1 });
   assert.equal(state.modeCursor, 1);
+  state = reduce(state, { type: "mode/cursor-delta", delta: 1 });
+  assert.equal(state.modeCursor, 2);
+  state = reduce(state, { type: "mode/cursor-delta", delta: 1 });
+  assert.equal(state.modeCursor, 2);
+  state = reduce(state, { type: "mode/cursor-delta", delta: -1 });
+  assert.equal(state.modeCursor, 1);
   state = reduce(state, { type: "mode/open-custom-url" });
   assert.equal(state.screen, "custom-url");
   state = reduce(state, {

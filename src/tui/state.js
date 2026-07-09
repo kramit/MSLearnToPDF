@@ -247,7 +247,7 @@ function reduce(state, action) {
     case "mode/cursor-delta":
       return {
         ...state,
-        modeCursor: Math.max(0, Math.min(1, state.modeCursor + action.delta))
+        modeCursor: Math.max(0, Math.min(2, state.modeCursor + action.delta))
       };
     case "mode/open-custom-url":
       return {

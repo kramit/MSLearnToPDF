@@ -103,6 +103,7 @@ ${module.units
 - Answer-key entries: ${report.totals.answerCount}
 - PDF: ${report.outputs.pdf}
 - Text: ${report.outputs.text}
+- EPUB: ${report.outputs.epub || "(not generated)"}
 
 ## Included modules and units
 

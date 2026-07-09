@@ -1,3 +1,6 @@
+const path = require("node:path");
+const { dateStamp, timestampStamp } = require("../shared");
+
 function buildOutputConfirmation(state, mode) {
   const inventory = state.outputManager.inventory;
   if (!inventory) return null;
@@ -120,11 +123,21 @@ async function convertPreparedQueue(state, options = {}) {
 
   for (const item of readyItems) {
     const queueIndex = results.length + 1;
+    const stamp = dateStamp();
+    const bundleName = `${item.resolution.courseCode}-${stamp}`;
+    const logFile = path.join(
+      state.config.outputRoot,
+      bundleName,
+      "log",
+      `${timestampStamp()}.log`
+    );
     const startEvent = {
       timestamp: new Date().toISOString(),
       severity: "info",
       stage: "course-start",
       courseCode: item.resolution.courseCode,
+      outputBundle: bundleName,
+      logFile,
       message: `Starting ${item.resolution.courseCode}`
     };
     if (onEvent) onEvent(startEvent, queueIndex);
@@ -135,6 +148,7 @@ async function convertPreparedQueue(state, options = {}) {
         refresh: state.config.refreshCourseContent,
         signal,
         selectedCredentialUrl: item.url,
+        stamp,
         posterInfo:
           item.posterInfo === null
             ? null

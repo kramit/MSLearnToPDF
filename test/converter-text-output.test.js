@@ -127,7 +127,10 @@ test("course conversion writes and records text output artifacts", async () => {
   });
 
   const entry = result.manifest.learningPaths[0];
-  assert.match(entry.text, /^output\/text\/AI-901-2026-07-05\/AI-901 - Synthetic learning path - 2026-07-05\.txt$/);
+  assert.match(entry.text, /^output\/AI-901-2026-07-05\/txt\/AI-901 - Synthetic learning path - 2026-07-05\.txt$/);
+  assert.match(entry.pdf, /^output\/AI-901-2026-07-05\/pdf\/AI-901 - Synthetic learning path - 2026-07-05\.pdf$/);
+  assert.match(entry.epub, /^output\/AI-901-2026-07-05\/epub\/AI-901 - Synthetic learning path - 2026-07-05\.epub$/);
+  assert.equal(result.manifest.outputDirectory, "output/AI-901-2026-07-05");
 
   const textFile = path.resolve(root, entry.text);
   const text = await fs.readFile(textFile, "utf8");
@@ -137,7 +140,10 @@ test("course conversion writes and records text output artifacts", async () => {
 
   const fileBase = path.basename(entry.pdf, ".pdf");
   const report = await readJson(
-    path.join(outputRoot, "reports", "AI-901-2026-07-05", `${fileBase}.json`)
+    path.join(outputRoot, "AI-901-2026-07-05", "log", `${fileBase}.json`)
   );
   assert.equal(report.outputs.text, entry.text);
+  assert.equal(report.outputs.epub, entry.epub);
+  await fs.access(path.resolve(root, entry.epub));
+  await fs.access(path.join(outputRoot, "AI-901-2026-07-05", "log", "course-manifest.json"));
 });

@@ -61,7 +61,7 @@ It now has two user-facing flows:
 2. Refresh or reuse the certification poster catalog.
 3. Let the user select one or more course codes.
 4. Resolve each selected poster link into a course plus ordered learning paths.
-5. Convert each learning path into HTML, PDF, text, and reports.
+5. Convert each learning path into HTML, PDF, EPUB, text, and reports.
 6. Validate PDF content and enforce reflection checks between:
    poster selection -> resolved UID/title -> PDF filename -> report -> manifest.
 7. Optionally run `src/qa/service.js` to audit each exported learning path back against the expected module/unit hierarchy and roll the results into a course-level QA report.
@@ -69,17 +69,19 @@ It now has two user-facing flows:
 ## Invariants
 
 - Course exports are one PDF per learning path.
+- EPUB exports are one compact Kindle-friendly `.epub` file per learning path.
 - Text exports are one compact `.txt` file per learning path for LLM ingestion.
 - Output folders are dated per course:
-  `outputRoot/pdf/<COURSE>-YYYY-MM-DD/`
-  `outputRoot/html/<COURSE>-YYYY-MM-DD/`
-  `outputRoot/text/<COURSE>-YYYY-MM-DD/`
-  `outputRoot/reports/<COURSE>-YYYY-MM-DD/`
+  `outputRoot/<COURSE>-YYYY-MM-DD/pdf/`
+  `outputRoot/<COURSE>-YYYY-MM-DD/html/`
+  `outputRoot/<COURSE>-YYYY-MM-DD/txt/`
+  `outputRoot/<COURSE>-YYYY-MM-DD/epub/`
+  `outputRoot/<COURSE>-YYYY-MM-DD/log/`
 - Cache data never lives inside the output tree.
 - External labs, videos, repositories, and docs remain links and are never crawled.
 - The converter may continue after a single course or learning-path failure, but manifests must record the failure.
 - Reflection validation must fail if the expected learning-path UID or title drifts.
-- QA summaries under `outputRoot/reports/qa/<RUN-ID>/` are the machine-readable audit artifact for unattended Codex or LLM review.
+- QA summaries under `outputRoot/qa-<RUN-ID>/log/` are the machine-readable audit artifact for unattended Codex or LLM review.
 
 ## Testing
 
