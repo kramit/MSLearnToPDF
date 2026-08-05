@@ -5,6 +5,8 @@ print-oriented study-book PDFs. It supports both a URL-driven CLI and a
 colorful terminal UI that reads the official Microsoft certification poster and
 lets you queue one or more courses for export.
 
+![MSLearnToPDF terminal interface showing generated PDF, text and EPUB exports](docs/images/mslearn-to-pdf.webp)
+
 ## Launch the TUI
 
 ### Windows
