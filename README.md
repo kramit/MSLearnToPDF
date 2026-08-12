@@ -27,6 +27,20 @@ The launcher requires Node.js 22 or newer. On first use it installs JavaScript
 dependencies and the Playwright Chromium build used for PDF generation. Both
 Apple Silicon and Intel macOS are supported by the native canvas dependency.
 
+If Node.js is not installed, the launcher can download a verified, repository-local
+copy without administrator access:
+
+```powershell
+.\run.ps1 -InstallPrerequisites
+```
+
+```sh
+./run.sh --install-prerequisites
+```
+
+The downloaded runtime is stored under `.tools/` and is used automatically by
+future runs. On macOS and Linux, put `--install-prerequisites` before other options.
+
 Optional alternate app config:
 
 ```powershell
