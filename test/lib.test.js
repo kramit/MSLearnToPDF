@@ -146,6 +146,72 @@ test("normalizes standalone indented Markdown images without changing code", () 
   );
 });
 
+test("keeps text pivot content while removing video fallback zones", () => {
+  const source = `Before the pivots.\r
+\r
+::: zone pivot="video"\r
+\r
+Tip\r
+\r
+See the **Text and images** tab for more details!\r
+\r
+::: zone-end\r
+\r
+::: zone pivot="text"\r
+\r
+Retained lesson content.\r
+\r
+::: zone-end\r
+\r
+After the pivots.`;
+
+  assert.equal(
+    cleanUnitMarkdown(source),
+    "Before the pivots.\n\nRetained lesson content.\n\nAfter the pivots."
+  );
+});
+
+test("unwraps text-only pivot zones", () => {
+  const source = `::: zone pivot='text'
+
+Text-only lesson content.
+
+::: zone-end`;
+
+  assert.equal(cleanUnitMarkdown(source), "Text-only lesson content.");
+});
+
+test("preserves content after incomplete pivot markup", () => {
+  const source = `Before the incomplete zone.
+
+::: zone pivot="video"
+
+Content after an unclosed directive must not be lost.
+
+::: zone pivot="text"
+
+Content from a later valid text zone must also be retained.
+
+::: zone-end
+
+After the incomplete zone.`;
+
+  assert.equal(
+    cleanUnitMarkdown(source),
+    `Before the incomplete zone.
+
+Content after an unclosed directive must not be lost.
+
+Content from a later valid text zone must also be retained.
+
+After the incomplete zone.`
+  );
+  assert.equal(
+    cleanUnitMarkdown("Before.\n\n::: zone-end\n\nAfter."),
+    "Before.\n\nAfter."
+  );
+});
+
 test("builds stable body-text samples for PDF validation", () => {
   assert.equal(
     contentValidationText(

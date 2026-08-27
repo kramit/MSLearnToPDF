@@ -64,8 +64,46 @@ function dedupeAdjacentContent(markdown) {
   return dedupedBlocks.join("\n\n");
 }
 
+function normalizePivotZones(markdown) {
+  const lines = String(markdown || "").replace(/\r/g, "").split("\n");
+  const output = [];
+  const zoneStart = /^\s*:::\s*zone\s+pivot\s*=\s*(["'])(text|video)\1\s*$/i;
+  const zoneEnd = /^\s*:::\s*zone-end\s*$/i;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const start = lines[index].match(zoneStart);
+    if (!start) {
+      if (!zoneEnd.test(lines[index])) output.push(lines[index]);
+      continue;
+    }
+
+    let endIndex = -1;
+    for (
+      let candidateIndex = index + 1;
+      candidateIndex < lines.length;
+      candidateIndex += 1
+    ) {
+      if (zoneStart.test(lines[candidateIndex])) break;
+      if (zoneEnd.test(lines[candidateIndex])) {
+        endIndex = candidateIndex;
+        break;
+      }
+    }
+    if (endIndex < 0) {
+      continue;
+    }
+
+    if (start[2].toLowerCase() === "text") {
+      output.push(...lines.slice(index + 1, endIndex));
+    }
+    index = endIndex;
+  }
+
+  return output.join("\n");
+}
+
 function cleanUnitMarkdown(markdown) {
-  const lines = markdown.replace(/\r/g, "").split("\n");
+  const lines = normalizePivotZones(markdown).split("\n");
   if (lines[0]?.startsWith("# ")) lines.shift();
   while (lines[0] === "") lines.shift();
   if (lines[0]?.trim() === "Completed") lines.shift();
