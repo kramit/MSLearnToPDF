@@ -18,7 +18,7 @@ function containsValidationText(searchableText, value) {
   if (searchableText.includes(normalizedValue)) return true;
 
   const sentenceFragments = String(value || "")
-    .split(/(?<=[.!?])\s+/u)
+    .split(/(?<=[.!?:])\s+/u)
     .map(normalizeForSearch)
     .filter(Boolean);
 
