@@ -43,6 +43,12 @@ const {
 const { writeEpubFile } = require("./epub");
 const { renderLlmText } = require("./text");
 
+const terminalPdfValidationCodes = new Set([
+  "PDF_VALIDATION_TIMEOUT",
+  "PDF_VALIDATION_SIZE_LIMIT",
+  "PDF_VALIDATION_PAGE_LIMIT"
+]);
+
 function shouldSkipCourseMembershipCheck(resolution, uid) {
   return Boolean(
     resolution.directLearningPathUids?.includes(uid) ||
@@ -651,7 +657,33 @@ async function convertCourseFromResolution(resolution, options) {
         hierarchy
       });
       const report = result.report;
-      manifestEntry.validation = await validatePdf(result.pdfFile, report);
+      emitProgress(onEvent, {
+        severity: "info",
+        stage: "validate-start",
+        courseCode: resolution.courseCode,
+        learningPathUid: uid,
+        learningPathTitle: parent.title,
+        message: "Starting bounded PDF content validation"
+      });
+      manifestEntry.validation = await validatePdf(result.pdfFile, report, {
+        signal,
+        onProgress: (validationProgress) => {
+          const message = validationProgress.phase === "page-start"
+            ? `Validating PDF page ${validationProgress.pageNumber} of ${validationProgress.pageCount}`
+            : validationProgress.phase === "page-milestone"
+              ? `Validated PDF page ${validationProgress.pageNumber} of ${validationProgress.pageCount}`
+              : `PDF validation ${validationProgress.phase}`;
+          emitProgress(onEvent, {
+            severity: "info",
+            stage: "validate-progress",
+            courseCode: resolution.courseCode,
+            learningPathUid: uid,
+            learningPathTitle: parent.title,
+            message,
+            validationProgress
+          });
+        }
+      });
       manifestEntry.status = "complete";
       manifestEntry.reflection = validateReflection({
         report,
@@ -670,11 +702,17 @@ async function convertCourseFromResolution(resolution, options) {
     } catch (error) {
       if (error.name === "AbortError") throw error;
       failedCount += 1;
+      const boundedValidationFailure = terminalPdfValidationCodes.has(error.code);
       manifestEntry.status = "failed";
-      manifestEntry.error = error.message;
+      manifestEntry.error = boundedValidationFailure
+        ? "PDF validation stopped at a configured limit"
+        : error.message;
+      if (boundedValidationFailure) {
+        manifestEntry.validationErrorCode = error.code;
+      }
       manifestEntry.reflection = {
         status: "failed",
-        message: error.message
+        message: manifestEntry.error
       };
       emitProgress(onEvent, {
         severity: "error",
@@ -682,11 +720,19 @@ async function convertCourseFromResolution(resolution, options) {
         courseCode: resolution.courseCode,
         learningPathUid: uid,
         learningPathTitle: manifestEntry.title,
-        message: `Failed ${manifestEntry.title}: ${error.message}`
+        message: boundedValidationFailure
+          ? "PDF validation stopped at a configured limit"
+          : `Failed ${manifestEntry.title}: ${error.message}`
       });
     }
     manifest.learningPaths.push(manifestEntry);
     await writeJson(path.join(directories.reportDirectory, "course-manifest.json"), manifest);
+    if (manifestEntry.validationErrorCode) {
+      const error = new Error("PDF validation stopped at a configured limit");
+      error.code = manifestEntry.validationErrorCode;
+      error.manifest = manifest;
+      throw error;
+    }
   }
   await writeJson(path.join(directories.reportDirectory, "course-manifest.json"), manifest);
   emitProgress(onEvent, {

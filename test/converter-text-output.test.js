@@ -5,6 +5,8 @@ const os = require("node:os");
 const path = require("node:path");
 const { learningPathHierarchyCacheFile, slug } = require("../src/shared");
 
+let validationImplementation = async () => ({ status: "pass", pages: 1 });
+
 const pdfModule = require.resolve("../src/converter/pdf");
 require.cache[pdfModule] = {
   id: pdfModule,
@@ -24,7 +26,7 @@ require.cache[validateModule] = {
   filename: validateModule,
   loaded: true,
   exports: {
-    validatePdf: async () => ({ status: "pass", pages: 1 })
+    validatePdf: (...args) => validationImplementation(...args)
   }
 };
 
@@ -146,4 +148,65 @@ test("course conversion writes and records text output artifacts", async () => {
   assert.equal(report.outputs.epub, entry.epub);
   await fs.access(path.resolve(root, entry.epub));
   await fs.access(path.join(outputRoot, "AI-901-2026-07-05", "log", "course-manifest.json"));
+});
+
+test("stops a course after a bounded PDF validation failure without leaking PDF text", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "mslearn-validation-limit-"));
+  const cacheRoot = path.join(root, "cache");
+  const outputRoot = path.join(root, "output");
+  const courseCode = "ZZ-998";
+  const learningPathUids = ["learn.synthetic.first", "learn.synthetic.second"];
+  for (const uid of learningPathUids) {
+    await writeCachedCourse(root, cacheRoot, courseCode, uid);
+  }
+  validationImplementation = async () => {
+    const error = new Error("sensitive text from the PDF must not escape");
+    error.code = "PDF_VALIDATION_TIMEOUT";
+    throw error;
+  };
+  t.after(() => {
+    validationImplementation = async () => ({ status: "pass", pages: 1 });
+    return fs.rm(root, { recursive: true, force: true });
+  });
+
+  const events = [];
+  const resolution = {
+    originalUrl: "https://learn.microsoft.com/en-us/training/courses/zz-998",
+    normalizedUrl: "https://learn.microsoft.com/en-us/training/courses/zz-998",
+    inputPageType: "Course",
+    courseCode,
+    courseUid: "course.zz-998",
+    courseTitle: "Synthetic test course",
+    courseUrl: "https://learn.microsoft.com/en-us/training/courses/zz-998",
+    learningPathUids,
+    directLearningPathUids: learningPathUids,
+    warnings: []
+  };
+  const appConfig = {
+    outputRoot,
+    cacheRoot,
+    locale: "en-us",
+    paperFormat: "A4",
+    refreshCourseContent: false
+  };
+
+  await assert.rejects(
+    convertCourseFromResolution(resolution, {
+      appConfig,
+      root,
+      refresh: false,
+      stamp: "2026-07-05",
+      onEvent: (event) => events.push(event)
+    }),
+    (error) => {
+      assert.equal(error.code, "PDF_VALIDATION_TIMEOUT");
+      assert.equal(error.message, "PDF validation stopped at a configured limit");
+      assert.equal(error.manifest.learningPaths.length, 1);
+      assert.equal(error.manifest.learningPaths[0].validationErrorCode, "PDF_VALIDATION_TIMEOUT");
+      assert.equal(error.manifest.learningPaths[0].error, "PDF validation stopped at a configured limit");
+      assert.equal(events.filter((event) => event.stage === "path-start").length, 1);
+      assert.equal(JSON.stringify(events).includes("sensitive text from the PDF"), false);
+      return true;
+    }
+  );
 });
