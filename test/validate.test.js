@@ -108,6 +108,32 @@ test("does not accept validation samples with missing sentence fragments", () =>
   );
 });
 
+test("matches SC-200 samples interrupted by printed external-link annotations", () => {
+  for (const [rendered, sample] of [
+    [
+      "The Microsoft Defender portal (https://security.microsoft.com/) External resource is a specialized workspace designed",
+      "The Microsoft Defender portal (https://security.microsoft.com/) is a specialized workspace designed"
+    ],
+    [
+      "Sign in to the Microsoft Entra admin center External resource using a global administrator account",
+      "Sign in to the Microsoft Entra admin center using a"
+    ]
+  ]) {
+    assert.equal(containsValidationText(normalizeForSearch(rendered), sample), true);
+  }
+});
+
+test("external-link annotations cannot hide missing source words", () => {
+  assert.equal(containsValidationText(
+    normalizeForSearch("Sign in to the Microsoft Entra admin center External resource using a"),
+    "Sign in to the Microsoft Entra admin center using a global administrator"
+  ), false);
+  assert.equal(containsValidationText(
+    normalizeForSearch("Read the guide before continuing"),
+    "Read the external resource guide before continuing"
+  ), false);
+});
+
 test("validates required content and reports privacy-safe page milestones and resource measurements", async (t) => {
   const pdfFile = await temporaryPdf(t, makePdf([
     "Sample Learning Path Source and attribution Module One Unit One A distinctive validation sample."
@@ -228,4 +254,13 @@ test("cancels the isolated validator when the caller aborts", async (t) => {
   const pending = validatePdf(pdfFile, validReport, { signal: controller.signal });
   controller.abort();
   await assert.rejects(pending, { name: "AbortError", code: "PDF_VALIDATION_ABORTED" });
+});
+
+
+test("matches AZ-400 functional-test text across a heading and external-link annotation", () => {
+  const rendered = "Estimated time 60 minutes Scenario Selenium External resource is a portable open source software testing framework";
+  assert.equal(containsValidationText(normalizeForSearch(rendered),
+    "Estimated time: 60 minutes. Selenium is a portable open source"), true);
+  assert.equal(containsValidationText(normalizeForSearch(rendered),
+    "Estimated time: 60 minutes. Selenium is a portable proprietary open source"), false);
 });
