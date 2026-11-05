@@ -15,7 +15,7 @@ function normalizeForSearch(value) {
 function containsValidationText(searchableText, value) {
   const normalizedValue = normalizeForSearch(value);
   if (!normalizedValue) return true;
-  if (searchableText.includes(normalizedValue)) return true;
+  if (containsNormalizedValidationText(searchableText, normalizedValue)) return true;
 
   const sentenceFragments = String(value || "")
     .split(/(?<=[.!?:])\s+/u)
@@ -24,8 +24,16 @@ function containsValidationText(searchableText, value) {
 
   return (
     sentenceFragments.length > 1 &&
-    sentenceFragments.every((fragment) => searchableText.includes(fragment))
+    sentenceFragments.every((fragment) => containsNormalizedValidationText(searchableText, fragment))
   );
+}
+
+function containsNormalizedValidationText(searchableText, value) {
+  if (searchableText.includes(value)) return true;
+  // The print template adds this annotation after outbound links. It can
+  // interrupt a source sentence, but must not replace any of its words.
+  const pattern = value.split(" ").join(" (?:external resource )?");
+  return new RegExp(`(?:^| )${pattern}(?: |$)`, "u").test(searchableText);
 }
 
 async function validatePdf(pdfFile, report) {
