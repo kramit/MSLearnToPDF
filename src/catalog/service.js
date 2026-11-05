@@ -16,6 +16,17 @@ const {
   pickAnnotation
 } = require("./parser");
 
+// Keep explicitly supported courses available when the poster omits them.
+function includeAdditionalCourses(catalog) {
+  const byCode = new Map(catalog.entries.map((entry) => [entry.code.toUpperCase(), entry]));
+  byCode.set("AZ-400", {
+    code: "AZ-400",
+    title: "Designing and Implementing Microsoft DevOps Solutions",
+    url: "https://learn.microsoft.com/en-us/credentials/certifications/exams/az-400/"
+  });
+  return { ...catalog, entries: [...byCode.values()].sort((a, b) => a.code.localeCompare(b.code)) };
+}
+
 function validateCatalog(nextCatalog, previousCatalog) {
   if (!Array.isArray(nextCatalog.entries) || !nextCatalog.entries.length) {
     throw new Error("Poster catalog did not contain any entries");
@@ -194,7 +205,7 @@ async function loadPosterCatalog(appConfig, options = {}) {
     });
     validateCatalog(catalog, previousCatalog);
     const hydrated = {
-      ...catalog,
+      ...includeAdditionalCourses(catalog),
       poster: {
         url: appConfig.posterUrl,
         retrievedAt:
@@ -217,7 +228,7 @@ async function loadPosterCatalog(appConfig, options = {}) {
         stage: "warning",
         message: `Using cached poster catalog: ${error.message}`
       });
-      return previousCatalog;
+      return includeAdditionalCourses(previousCatalog);
     }
     throw error;
   }
