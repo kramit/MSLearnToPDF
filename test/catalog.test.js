@@ -128,7 +128,27 @@ test("loadPosterCatalog falls back to the last valid catalog", async () => {
     }
   );
 
-  assert.deepEqual(result, previous);
+  assert.deepEqual(result.entries.filter((entry) => entry.code !== "AZ-400"), previous.entries);
+  assert.equal(result.entries.find((entry) => entry.code === "AZ-400").url,
+    "https://learn.microsoft.com/en-us/credentials/certifications/exams/az-400/");
+  assert.deepEqual(result.poster, previous.poster);
   assert.equal(events.at(-1).severity, "warn");
   assert.match(events.at(-1).message, /Using cached poster catalog/);
 });
+
+for (const alreadyListed of [false, true]) {
+  test(`AZ-400 is available exactly once after poster refresh (already listed: ${alreadyListed})`, async (t) => {
+    const cacheRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mslearn-az400-"));
+    t.after(() => fs.rm(cacheRoot, { recursive: true, force: true }));
+    const entries = [{ code: "AZ-104", title: "Azure Administrator", url: "https://learn.microsoft.com/en-us/credentials/certifications/exams/az-104/" }];
+    if (alreadyListed) entries.push({ code: "az-400", title: "DevOps Engineer", url: "https://learn.microsoft.com/en-us/credentials/certifications/devops-engineer/" });
+    const result = await loadPosterCatalog({ cacheRoot, posterUrl: "https://example.invalid/poster.pdf" }, {
+      fetchPosterBinary: async () => ({ data: Buffer.from("fixture"), status: "downloaded" }),
+      parsePosterCatalog: async () => ({ schemaVersion: 1, entries }),
+      hydrateIncompleteEntries: async (_config, catalog) => catalog
+    });
+    const matches = result.entries.filter((entry) => entry.code.toUpperCase() === "AZ-400");
+    assert.deepEqual(matches, [{ code: "AZ-400", title: "Designing and Implementing Microsoft DevOps Solutions", url: "https://learn.microsoft.com/en-us/credentials/certifications/exams/az-400/" }]);
+    assert.deepEqual(JSON.parse(await fs.readFile(path.join(cacheRoot, "poster", "catalog.json"), "utf8")), result);
+  });
+}

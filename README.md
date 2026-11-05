@@ -54,7 +54,7 @@ Optional alternate app config:
 The TUI:
 
 - refreshes the official certification poster with cached fallback
-- shows every recognized course code from the poster
+- shows every recognized course code from the poster, plus AZ-400 (including when using the cached catalog)
 - supports search, multi-select, and queue review
 - can launch a full poster-wide QA sweep with `Q`
 - displays live conversion progress and verbose logs
