@@ -264,3 +264,13 @@ test("matches AZ-400 functional-test text across a heading and external-link ann
   assert.equal(containsValidationText(normalizeForSearch(rendered),
     "Estimated time: 60 minutes. Selenium is a portable proprietary open source"), false);
 });
+
+
+test("matches rendered HTML entities without hiding missing source words", () => {
+  const text = normalizeForSearch("In Intune, EDR policies are available from Endpoint security > Endpoint detection and response");
+  assert.equal(containsValidationText(text, "In Intune, EDR policies are available from Endpoint security &gt;"), true);
+  assert.equal(containsValidationText(text, "In Intune, EDR policies are available from Endpoint security &#62;"), true);
+  assert.equal(containsValidationText(text, "In Intune, EDR policies are available from Endpoint security &#x3e;"), true);
+  assert.equal(containsValidationText(text, "In Intune, EDR policies are available from Endpoint security &gt; missing text"), false);
+  assert.equal(containsValidationText(normalizeForSearch("Identity and access"), "Identity &amp; access"), false);
+});
