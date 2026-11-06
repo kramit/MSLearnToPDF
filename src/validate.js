@@ -4,8 +4,18 @@ function normalize(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+function decodeValidationEntities(value) {
+  const named = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+  return String(value || "").replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos);/gi, (entity, name) => {
+    if (name[0] !== "#") return named[name.toLowerCase()] ?? entity;
+    const hex = name[1]?.toLowerCase() === "x";
+    const code = Number.parseInt(name.slice(hex ? 2 : 1), hex ? 16 : 10);
+    return code > 0 && code <= 0x10ffff && !(code >= 0xd800 && code <= 0xdfff) ? String.fromCodePoint(code) : entity;
+  });
+}
+
 function normalizeForSearch(value) {
-  return normalize(value)
+  return normalize(decodeValidationEntities(value))
     .toLocaleLowerCase("en-US")
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .replace(/\s+/g, " ")
